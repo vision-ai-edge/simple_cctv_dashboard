@@ -1,0 +1,28 @@
+{
+  "name": "simple-cctv-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CCTV camera dashboard for placement on maps and management through EdgeAI Box API",
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"bun run --cwd apps/api dev\" \"bun run --cwd apps/web dev\"",
+    "build": "bun run --filter='*' build",
+    "lint": "biome check .",
+    "format": "biome format . --write",
+    "typecheck": "tsc --build",
+    "test": "bun run --filter='*' test",
+    "test:cov": "bun run --filter='*' test:cov",
+    "db:migrate": "bun run --cwd packages/db migrate",
+    "db:seed": "bun run --cwd packages/db seed"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/bun": "^1.2.0",
+    "concurrently": "^9.1.2",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "bun": ">=1.2.0"
+  }
+}

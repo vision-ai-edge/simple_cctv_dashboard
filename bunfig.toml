@@ -1,0 +1,10 @@
+# Bun runtime configuration
+# https://bun.sh/docs/runtime/bunfig
+
+[install]
+# Use the lockfile to ensure reproducible installs
+frozenLockfile = false
+
+[test]
+# Default test root
+root = "."

@@ -6,11 +6,14 @@
 |------|------|
 | **SPEC ID** | SPEC-CORE-001 |
 | **제목** | Bun 모노레포 스캐폴딩 및 핵심 패키지 기반 구조 |
-| **상태** | Planned |
+| **상태** | Implemented |
 | **우선순위** | High (Primary Goal) |
-| **담당 에이전트** | manager-ddd → expert-backend |
+| **담당 에이전트** | manager-strategy → expert-backend (Hybrid 모드) |
 | **연관 SPEC** | SPEC-AUTH-*, SPEC-BOX-*, SPEC-MAP-*, SPEC-LIVE-*, SPEC-MEDIA-*, SPEC-ALERT-*, SPEC-OPS-* |
 | **작성일** | 2026-05-12 |
+| **구현 완료일** | 2026-05-12 |
+| **구현 커밋** | `4f2fc96` (MoAI 설정), `2d2c740` (스캐폴딩) |
+| **테스트 결과** | 44개 통과 (shared 30 + db 7 + api 7), shared 커버리지 93% |
 
 ---
 
@@ -415,4 +418,50 @@ PHASE: scaffold
 PACKAGES: shared, db, api-skeleton, web-skeleton
 EXTERNAL: EdgeAI Box API v1.3.6
 RELATED: SPEC-AUTH-*, SPEC-BOX-*, SPEC-MAP-*, SPEC-LIVE-*, SPEC-MEDIA-*, SPEC-ALERT-*, SPEC-OPS-*
+STATUS: Implemented (2026-05-12)
+COMMITS: 4f2fc96, 2d2c740
 ```
+
+---
+
+## 구현 부록 — Implementation Notes (2026-05-12 추가)
+
+본 SPEC은 `/moai run SPEC-CORE-001` 으로 구현 완료되었습니다. plan.md 대비 발산된 항목을 기록합니다.
+
+### 추가된 파일/구조
+
+| 항목 | 사유 |
+|------|------|
+| `tsconfig.base.json` | 4개 서브패키지가 공유하는 공통 컴파일 옵션 분리 (plan.md 미명시) |
+| `apps/api/src/app.ts` | Hono 앱 팩토리를 부팅 로직(`src/index.ts`)에서 분리하여 테스트 가능성 확보 |
+| `packages/db/src/__tests__/migration.test.ts` | AC-3 검증용 통합 테스트 (마이그레이션 멱등성, CASCADE, CHECK 제약) |
+| `apps/api/src/__tests__/config.test.ts` | 환경 변수 누락 시 `process.exit(1)` 검증 (AC-4 보강) |
+| `apps/api/src/__tests__/health.test.ts` | `/health`, 404, CORS 동작 검증 (AC-4) |
+
+### 의존성 결정 사항
+
+- **bcryptjs** + `@types/bcryptjs` 채택 (시드 비밀번호 해시). Pure JS 구현이라 Bun 호환성 보장.
+- **ulid** 패키지 채택 (`crypto.randomUUID()` 대신). 정렬 가능 ID 보장 (plan.md A3 참조).
+- **drizzle-kit**: Drizzle Studio / introspection 용도로만 포함. 마이그레이션은 수동 SQL (`0001_init.sql`) 관리.
+- **apps/web**: `vitest` 제거 — Vite 6 ↔ vitest 2 타입 충돌. 본 SPEC AC-5는 페이지 존재/헬스 배지만 요구하므로 단위 테스트 불필요. SPEC-MAP 이후 도입 예정.
+- **@types/node** 추가 — SvelteKit dev 환경에서 Node 타입 필요.
+
+### 방법론 변경
+
+`.moai/config/sections/quality.yaml`의 `development_mode` 를 `ddd` → `hybrid` 로 변경. 사유: 본 SPEC은 그린필드 신규 스캐폴딩으로 DDD 의 PRESERVE 단계(기존 동작 보존)가 적용 불가. Hybrid 모드에서 신규 코드는 TDD 로 처리됨.
+
+### 인터페이스 시그니처 미세 조정
+
+- `client.snapshot(id, type?)`: SPEC 본문에서는 응답 스키마 미지정. 실제 구현은 `SimpleResponseSchema.passthrough()` 사용 (binary 가능성 고려). SPEC-MEDIA 단계에서 `ArrayBuffer` 반환 변형 도입 예정.
+- `setCredentials(creds)` 메서드 추가 — login 직후 JWT 주입을 위한 보조 API. SPEC 본문에는 없으나 실용성 측면에서 필요.
+- `BoxApiError.fromUnknown(value, fallbackStatus)` 정적 메서드 — 네트워크 실패를 BoxApiError 로 정규화하는 헬퍼.
+
+### Bun CLI 사용 패턴
+
+- 워크스페이스 스크립트 호출 시 `bun run --cwd <path> <script>` 순서를 따라야 함 (`bun --cwd <path> run <script>` 은 정상 동작하지 않음 — Bun 1.3.x 동작).
+- 루트 `package.json` 스크립트는 모두 후자 형식으로 작성됨.
+
+### 검증되지 않은 항목 (수동 후속 필요)
+
+- AC-5 "브라우저 방문 시 CCTV Dashboard 텍스트 표시" — 빌드 성공 및 컴포넌트 존재만 자동 검증. 실제 브라우저 시각 검증은 `bun run dev` 후 수동 확인 필요.
+- AC-6 "전체 앱 동시 개발 서버 실행" — 코드상 동시 기동 설정만 검증. 실제 동시 실행 시 포트 충돌 등은 수동 확인 필요.

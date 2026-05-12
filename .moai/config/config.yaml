@@ -1,0 +1,23 @@
+# MoAI Configuration Root
+# Central configuration for the simple_cctv_dashboard project
+
+# Configuration sections directory
+sections_dir: ".moai/config/sections"
+
+# Sections loaded from .moai/config/sections/
+# Each YAML file in sections_dir is automatically loaded
+sections:
+  - user.yaml          # User information and preferences
+  - language.yaml      # Language and localization settings
+  - quality.yaml       # Quality gates, TRUST 5, coverage targets
+  - workflow.yaml      # Workflow mode, token budgets, team settings
+
+# Project metadata
+project:
+  name: "simple_cctv_dashboard"
+  description: "CCTV camera dashboard for placement on maps and management through EdgeAI Box API"
+  created: "2026-05-12"
+  version: "0.1.0"
+
+# Configuration version
+config_version: "1.0.0"

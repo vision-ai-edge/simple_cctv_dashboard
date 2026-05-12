@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+build/
+.svelte-kit/
+.turbo/
+
+# Database files
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+data/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Editor and OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+bun-debug.log*
+
+# Test coverage
+coverage/
+*.lcov
+
+# Bun
+bun.lockb

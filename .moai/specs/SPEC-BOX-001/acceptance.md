@@ -1,5 +1,14 @@
 # SPEC-BOX-001 인수 기준 (acceptance.md)
 
+## HISTORY
+
+| 날짜 | 버전 | 변경 사항 | 작성자 |
+|------|------|---------|--------|
+| 2026-05-13 | 0.2.0 | 구현 완료 — AC-BOX-001~007, EC-BOX-001~007 전원 (PASS) | imgughyeon |
+| 2026-05-13 | 0.1.0 | 초안 작성 | imgughyeon |
+
+---
+
 ```
 TAG: SPEC-BOX-001
 DOMAIN: box, crypto, worker

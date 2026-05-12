@@ -107,6 +107,55 @@
 - **린터**: ESLint + TypeScript rules
 - **import 순서**: 표준, 상대 경로, CSS 순
 
+## EdgeAI Box 자격증명 볼트 (SPEC-BOX-001)
+
+### AES-256-GCM 암호화 시스템
+- **알고리즘**: AES-256-GCM (Advanced Encryption Standard, 256-bit key, Galois/Counter Mode)
+- **Key Source**: `BOX_VAULT_KEY` 환경변수 (32바이트 = 64자 hex 문자열, 필수)
+- **IV (Initialization Vector)**: 12바이트 난수, 암호화마다 새로 생성
+- **Auth Tag**: 16바이트 GCM 인증 태그, 복호화 시 자동 검증 (변조 감지)
+- **Blob Format**: `[12B IV ‖ ciphertext ‖ 16B auth tag]` 단일 Uint8Array
+
+### 자격증명 저장소 (Database)
+- **password_enc**: Box 관리자 비밀번호 (AES-GCM 암호화)
+- **jwt_cached_enc**: EdgeAI Box JWT 토큰 (AES-GCM 암호화)
+- **api_key_cached_enc**: EdgeAI Box API Key (AES-GCM 암호화)
+- **Backward Compatibility**: 레거시 `jwt_cached`, `api_key_cached` text 컬럼 병행 보존
+
+### 런타임 자격증명 검증
+- **서버 시작 시**: `assertBoxVaultKey` 함수가 BOX_VAULT_KEY 형식 검증 (64자 hex)
+  - 미충족 시 오류 로그 출력 후 `process.exit(1)` 즉시 종료
+  - 키 값 자체는 로그/에러 메시지에 절대 포함되지 않음
+
+### 401 자동 재인증 가드 (withAuthRetry)
+- **목적**: EdgeAI Box API 호출 시 401 응답 시 자동 재로그인
+- **동작**:
+  1. API 호출이 401 반환
+  2. `password_enc` 복호화 → `/auth/login` 호출
+  3. 새 JWT 발급 → `jwt_cached_enc` 갱신
+  4. 원본 요청 1회 재시도
+  5. 재로그인 실패 시 `status='error'` 전이 후 오류 전파 (무한 재귀 방지)
+
+### Box 상태 폴링 워커 (boxStatusPoller)
+- **주기**: `BOX_STATUS_POLL_INTERVAL_MS` 환경변수 (기본: 60000ms = 60초)
+- **엔드포인트**: EdgeAI Box `GET /system/health`
+- **상태 전이**:
+  - `status='active'` 유지 → 3회 연속 실패 → `status='error'`
+  - `status='error'` 또는 `'inactive'` → 폴링 스킵
+- **구현**: setInterval 기반 싱글톤 패턴, 서버 시작 시 부팅, 셧다운 훅에서 정리
+
+### 보안 강화
+- **자격증명 비노출**: API 응답, 로그, 에러 메시지에 평문 password/jwt/apikey 절대 포함 금지
+  - password: 응답에서 완전 생략
+  - jwt/apikey: 마스킹 (예: `****abcd`) 또는 생략
+- **OWASP A02 (Cryptographic Failures) 대응**
+
+### 환경 변수
+- **BOX_VAULT_KEY**: 32바이트 hex (64자 필수, 생성: `openssl rand -hex 32`)
+- **BOX_STATUS_POLL_INTERVAL_MS**: 선택, 기본 60000
+
+---
+
 ## 인증 및 보안 (SPEC-AUTH-001)
 
 ### 사용자 인증 시스템

@@ -1,7 +1,7 @@
 ---
 id: SPEC-BOX-001
-version: 0.1.0
-status: Draft
+version: 0.2.0
+status: Implemented
 created: 2026-05-13
 updated: 2026-05-13
 author: imgughyeon
@@ -14,6 +14,7 @@ priority: High
 
 | 날짜 | 버전 | 변경 사항 | 작성자 |
 |------|------|---------|--------|
+| 2026-05-13 | 0.2.0 | 구현 완료 및 동기화 (TDD, 186개 테스트 통과, GAP-1 해결) | imgughyeon |
 | 2026-05-13 | 0.1.0 | 초안 작성 | imgughyeon |
 
 ---
@@ -24,7 +25,7 @@ priority: High
 |------|------|
 | **SPEC ID** | SPEC-BOX-001 |
 | **제목** | EdgeAI Box 등록 및 자격증명 볼트 — AES-GCM 암호화·헬스체크·상태 폴링 |
-| **상태** | Draft |
+| **상태** | Implemented |
 | **우선순위** | High |
 | **담당 에이전트** | expert-backend |
 | **연관 SPEC** | SPEC-CORE-001 (foundation, 완료), SPEC-AUTH-001 (auth middleware, main 머지 대기), SPEC-BOX-UI-001 (프론트엔드 등록 UI, 이후 SPEC) |
@@ -361,6 +362,47 @@ BOX_STATUS_POLL_INTERVAL_MS=60000
 
 ---
 
+## 구현 노트 (Implementation Notes)
+
+### 구현 완료일
+2026-05-13
+
+### 구현 커밋
+- 22be638: shared — vault.ts AES-GCM 암호화 유틸 + 16 단위 테스트
+- 7be77af: db — 0003_box_vault.sql, 0004_box_unique_url.sql, schema 보강 + 15 마이그레이션 테스트
+- 317ecce: api — boxService.ts, boxes.ts, boxStatusPoller.ts + 53 단위/통합 테스트
+
+### 테스트 결과
+186개 테스트 전원 통과:
+- shared: 65개 통과 (vault 16 + 기타)
+- db: 28개 통과 (마이그레이션)
+- api: 93개 통과 (boxService 16 + boxes 라우트 21 + poller 12 + config 4 + 기타)
+
+TypeScript 0 errors, Biome clean
+
+### 계획 외 추가
+- **0004_box_unique_url.sql** 마이그레이션 추가 (EC-BOX-003 base_url UNIQUE 제약 보강)
+- **BoxRegistrationError 시그니처 확장**: statusCode, code 옵션 필드 추가하여 409 응답 분기 지원
+- **apps/api/tsconfig.json paths alias**: `@cctv/shared/crypto/vault` 추가 (vault import 경로 해결)
+
+### 계획 외 보류
+없음. REQ-MOD-1~5 전체 구현 완료.
+
+### 새 의존성
+없음. Bun 내장 Web Crypto API 사용.
+
+### 신규 디렉토리
+- packages/shared/src/crypto/
+- apps/api/src/services/
+- apps/api/src/workers/
+
+### 알려진 제약 (후속 SPEC 권고)
+- **BOX_VAULT_KEY rotation 절차 부재**: 서버 재시작 없이 키 갱신 불가능 → SPEC-OPS 또는 SPEC-BOX-002에서 rotation 매커니즘 추가 권고
+- **withAuthRetry vs poller 동시 재로그인 경쟁 조건**: 두 경로에서 동시 401 발생 시 jwt_cached_enc 갱신 충돌 가능 → SPEC-BOX-002에서 분산 락 도입 권고
+- **폴러 실패 카운터 in-memory 보존**: 서버 재시작 시 3-fail 카운터 초기화 → SPEC-BOX-002에서 Redis 또는 DB 영속화 권고
+
+---
+
 ## 추적성 태그 (Traceability Tags)
 
 ```
@@ -370,7 +412,7 @@ PHASE: feature
 PACKAGES: shared (vault), db (schema migration), api (routes, service, worker)
 EXTERNAL: EdgeAI Box REST API v1.3.6 (/auth/login, /auth/apikey/regenerate, /system/health)
 RELATED: SPEC-CORE-001, SPEC-AUTH-001, SPEC-BOX-UI-001, SPEC-BOX-CHANNELS-001
-STATUS: Draft (2026-05-13)
-DEPENDS_ON: SPEC-CORE-001 (완료), SPEC-AUTH-001 (main 머지 대기)
+STATUS: Implemented (2026-05-13)
+DEPENDS_ON: SPEC-CORE-001 (완료), SPEC-AUTH-001 (main 머지 완료)
 SECURITY: OWASP A02 Cryptographic Failures
 ```

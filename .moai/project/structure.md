@@ -62,7 +62,7 @@
 ```
 simple_cctv_dashboard/
 ├── packages/
-│   ├── shared/                    # EdgeAI Box 타입 클라이언트 및 JWT 유틸
+│   ├── shared/                    # EdgeAI Box 타입 클라이언트, JWT 유틸, 자격증명 볼트
 │   │   ├── src/
 │   │   │   ├── edgeai-box-client/
 │   │   │   │   ├── client.ts       # BoxClient (40+ 엔드포인트)
@@ -71,6 +71,9 @@ simple_cctv_dashboard/
 │   │   │   ├── jwt/
 │   │   │   │   └── index.ts        # JWT 유틸 (SPEC-AUTH-001)
 │   │   │   │       # signAccessToken, signRefreshToken, verifyToken, parseTokenClaims, assertJwtSecret
+│   │   │   ├── crypto/
+│   │   │   │   └── vault.ts        # AES-GCM 자격증명 볼트 유틸 (SPEC-BOX-001)
+│   │   │   │       # assertBoxVaultKey, encryptWithVault, decryptWithVault
 │   │   │   ├── constants/
 │   │   │   │   └── index.ts        # API 경로, 에러 코드, 제한값
 │   │   │   └── index.ts
@@ -80,13 +83,15 @@ simple_cctv_dashboard/
 │   └── db/                          # 데이터베이스 스키마
 │       ├── src/
 │       │   ├── schema/
-│       │   │   ├── index.ts          # 9개 테이블 정의
+│       │   │   ├── index.ts          # 9개 테이블 정의 + 암호화 컬럼 (SPEC-BOX-001)
 │       │   │   └── auth.ts           # auth_token_blacklist 스키마 (SPEC-AUTH-001)
 │       │   ├── helpers/
 │       │   │   └── auth.ts           # blacklistJti, isJtiBlacklisted 헬퍼
 │       │   ├── migrations/           # SQL 마이그레이션
 │       │   │   ├── 0001_initial.sql
-│       │   │   └── 0002_auth_blacklist.sql (SPEC-AUTH-001)
+│       │   │   ├── 0002_auth_blacklist.sql (SPEC-AUTH-001)
+│       │   │   ├── 0003_box_vault.sql (SPEC-BOX-001 — jwt_cached_enc, api_key_cached_enc)
+│       │   │   └── 0004_box_unique_url.sql (SPEC-BOX-001 — base_url UNIQUE INDEX)
 │       │   ├── migrate.ts            # 마이그레이션 러너
 │       │   ├── seed.ts               # 시드 스크립트
 │       │   └── index.ts
@@ -104,19 +109,20 @@ simple_cctv_dashboard/
 │   │   │   ├── routes/
 │   │   │   │   ├── health.ts        # GET /api/health
 │   │   │   │   ├── auth.ts          # /api/auth/* (login, logout, me, refresh) — SPEC-AUTH-001
+│   │   │   │   ├── boxes.ts         # GET/POST /api/boxes/* (5 엔드포인트) — SPEC-BOX-001
 │   │   │   │   ├── cameras.ts       # GET/POST /api/cameras (후속)
-│   │   │   │   ├── boxes.ts         # GET/POST /api/boxes (후속)
 │   │   │   │   ├── alerts.ts        # GET /api/alerts (후속)
 │   │   │   │   └── index.ts
 │   │   │   ├── services/
 │   │   │   │   ├── authService.ts   # 사용자 인증 로직
-│   │   │   │   ├── boxService.ts    # Box API 클라이언트
+│   │   │   │   ├── boxService.ts    # Box 등록/조회/삭제, 401 재인증 가드 (SPEC-BOX-001)
 │   │   │   │   ├── alertService.ts  # 알림 관리 및 전송
 │   │   │   │   └── streamService.ts # 스트리밍 프록시
 │   │   │   ├── workers/             # 백그라운드 워커
-│   │   │   │   ├── detectionPoller.ts
-│   │   │   │   ├── tokenRefresher.ts
-│   │   │   │   └── channelSyncer.ts
+│   │   │   │   ├── boxStatusPoller.ts # 60초 Box 상태 폴링 (SPEC-BOX-001)
+│   │   │   │   ├── detectionPoller.ts # 이벤트 폴링 (후속)
+│   │   │   │   ├── tokenRefresher.ts  # 토큰 갱신 (후속)
+│   │   │   │   └── channelSyncer.ts   # 채널 동기화 (후속)
 │   │   │   ├── db/
 │   │   │   │   └── client.ts        # SQLite 클라이언트
 │   │   │   └── types/
@@ -197,12 +203,14 @@ CREATE TABLE users (
 CREATE TABLE boxes (
   id: string (PK),
   name: string,
-  base_url: string (예: https://...:8443/api),
+  base_url: string (예: https://...:8443/api, UNIQUE INDEX — SPEC-BOX-001),
   username: string (Box 계정),
-  password_enc: blob (AES-GCM 암호화 저장),
-  jwt_cached: text (nullable, 발급된 Bearer 토큰 캐시),
+  password_enc: blob (AES-GCM 암호화, SPEC-BOX-001),
+  jwt_cached: text (nullable, 발급된 Bearer 토큰 캐시 — backward compat),
+  jwt_cached_enc: blob (AES-GCM 암호화, SPEC-BOX-001),
   jwt_obtained_at: timestamp (nullable),
-  api_key_cached: text (nullable, X-API-Key 캐시),
+  api_key_cached: text (nullable, X-API-Key 캐시 — backward compat),
+  api_key_cached_enc: blob (AES-GCM 암호화, SPEC-BOX-001),
   last_sync_at: timestamp (nullable, 마지막 채널 동기화 시각),
   status: enum ('active' | 'inactive' | 'error'),
   created_at: timestamp,
@@ -211,7 +219,8 @@ CREATE TABLE boxes (
 ```
 주: EdgeAI Box JWT/API Key는 만료 시간이 없지만(`expiresAt: null`),
 401 응답 또는 비밀번호 변경 시 무효화될 수 있어 username/password를 보관하고
-필요 시 자동 재로그인한다. password는 AES-GCM으로 암호화 저장한다.
+필요 시 자동 재로그인한다. password는 AES-GCM으로 암호화 저장한다 (SPEC-BOX-001).
+암호화된 credentials는 `jwt_cached_enc`, `api_key_cached_enc` blob 컬럼에 저장된다.
 
 ### Cameras 테이블
 ```

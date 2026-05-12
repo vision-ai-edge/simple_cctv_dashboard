@@ -11,8 +11,57 @@
 ### Planned
 
 - SPEC-AUTH-002: 비밀번호 변경 / API Key 관리 UI
-- SPEC-BOX-001: EdgeAI Box 등록 CRUD
+- SPEC-BOX-002: 채널 동기화 및 Box 다중 확장
 - SPEC-MAP-001: 지도 기반 카메라 마커 시각화
+
+---
+
+## [0.3.0] — 2026-05-13
+
+### Added — SPEC-BOX-001 (EdgeAI Box 등록 및 자격증명 볼트)
+
+#### packages/shared — AES-GCM 자격증명 볼트
+- `assertBoxVaultKey`: BOX_VAULT_KEY 32바이트 hex(64자) 검증, 에러 메시지에 키 값 미포함
+- `encryptWithVault`: AES-256-GCM 암호화 (12B 랜덤 IV + ciphertext + 16B auth tag 단일 blob)
+- `decryptWithVault`: GCM auth tag 자동 검증 (변조 감지)
+- Bun 내장 Web Crypto API 사용, 외부 의존성 추가 없음
+- 단위 테스트 16개
+
+#### packages/db — boxes 테이블 보강
+- 마이그레이션 0003_box_vault.sql: `jwt_cached_enc`, `api_key_cached_enc` BLOB 컬럼 추가
+- 마이그레이션 0004_box_unique_url.sql: `base_url` 중복 등록 방지 UNIQUE INDEX
+- Drizzle 스키마에 신규 컬럼 + uniqueIndex 선언
+- 기존 `jwt_cached`, `api_key_cached` (text) 컬럼은 backward compat용 보존
+- 마이그레이션 통합 테스트 15개
+
+#### apps/api — Box 서비스·라우트·폴러
+- `boxService`: registerBox, listBoxes, getBox, deleteBox, refreshTokens, withAuthRetry
+- `BoxRegistrationError` {statusCode, code} 시그니처 (409 분기 지원)
+- `BoxNotFoundError`
+- `POST /api/boxes` — 등록 + EdgeAI Box `/auth/login` 즉시 헬스체크, 중복 base_url 409 응답
+- `GET /api/boxes`, `GET /api/boxes/:id` — 자격증명 마스킹 응답
+- `POST /api/boxes/:id/refresh` — 수동 토큰 갱신
+- `DELETE /api/boxes/:id` — 삭제 (204)
+- 모든 라우트 requireAuth 미들웨어 보호
+- `withAuthRetry`: 401 응답 자동 재로그인 가드 (1회 제한, 실패 시 status='error')
+- `boxStatusPoller`: 60초 주기 GET `/system/health`, 3회 연속 실패 시 status='error' 전이, 싱글톤 보장
+- 단위 16 + 통합 21 + 폴러 12 + config 4 = 53개 신규 테스트
+
+#### 환경 변수
+- `BOX_VAULT_KEY`: 32바이트 hex (64자 필수, 서버 시작 시 검증 후 미충족 시 process.exit(1))
+- `BOX_STATUS_POLL_INTERVAL_MS`: 선택 (기본 60000)
+
+#### 보안 강화
+- 자격증명 평문이 API 응답·로그·에러 메시지에 절대 노출되지 않음 (메타-테스트 검증)
+- OWASP A02 (Cryptographic Failures) 대응
+- 401 무한 재귀 방지 (withAuthRetry 1회 제한)
+- 폴러 다중 인스턴스 방지 (싱글톤 패턴)
+
+### Documentation
+
+- `.moai/specs/SPEC-BOX-001/`: status Implemented, HISTORY 갱신, Implementation Notes 섹션 추가
+- `.moai/project/{product,structure,tech}.md`: SPEC-BOX-001 결과 반영
+- `README.md`: 현재 상태 갱신, 환경 변수 표 보강
 
 ---
 
@@ -146,6 +195,7 @@
 
 ---
 
-[Unreleased]: https://github.com/vision-ai-edge/simple_cctv_dashboard/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/vision-ai-edge/simple_cctv_dashboard/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/vision-ai-edge/simple_cctv_dashboard/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/vision-ai-edge/simple_cctv_dashboard/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/vision-ai-edge/simple_cctv_dashboard/releases/tag/v0.1.0

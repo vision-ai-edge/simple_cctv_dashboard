@@ -1,5 +1,14 @@
 # SPEC-BOX-001 구현 계획 (plan.md)
 
+## HISTORY
+
+| 날짜 | 버전 | 변경 사항 | 작성자 |
+|------|------|---------|--------|
+| 2026-05-13 | 0.2.0 | 구현 완료 — T1~T7 + GAP-1 보강 모두 완수 | imgughyeon |
+| 2026-05-13 | 0.1.0 | 초안 작성 | imgughyeon |
+
+---
+
 ```
 TAG: SPEC-BOX-001
 DOMAIN: box, crypto, worker

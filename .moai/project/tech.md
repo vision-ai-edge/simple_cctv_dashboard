@@ -26,8 +26,8 @@
 | **데이터베이스** | SQLite | 3.46+ (bun:sqlite) | 임베디드 관계형 DB, 별도 서버 불필요 |
 | **ORM** | Drizzle ORM | 1.1+ | 타입안전 쿼리 빌더, 마이그레이션 지원 |
 | **입력 검증** | Zod | 4.0+ | 스키마 기반 런타임 검증 |
-| **JWT 토큰** | jose | 5.8+ | JWT 암호화/복호화 |
-| **비밀번호 해싱** | bcrypt | 5.1+ | 강력한 암호화 (PBKDF2 대체) |
+| **JWT 토큰** | jose | 5.8+ | JWT 암호화/복호화 (HS256) |
+| **비밀번호 해싱** | bcryptjs | 2.4+ | 타이밍 안전 비밀번호 해싱 |
 | **환경 변수** | dotenv | 16.4+ | .env 파일 파싱 |
 
 ## 외부 시스템 통합
@@ -106,6 +106,38 @@
 - **포매터**: Prettier (자동 포매팅)
 - **린터**: ESLint + TypeScript rules
 - **import 순서**: 표준, 상대 경로, CSS 순
+
+## 인증 및 보안 (SPEC-AUTH-001)
+
+### 사용자 인증 시스템
+- **JWT HttpOnly 쿠키**: Access 토큰 (15분) + Refresh 토큰 (7일)
+- **서명 방식**: HS256 (jose 라이브러리)
+- **토큰 식별자**: ULID 기반 jti (유일성 보장)
+- **블랙리스트**: logout/refresh 시 jti 등록으로 토큰 폐기
+- **재사용 감지**: 블랙리스트된 refresh 토큰 재사용 시 전체 세션 무효화 (401)
+
+### 보안 메커니즘
+- **HttpOnly + SameSite=Lax 쿠키**: XSS/CSRF 공격 방지
+- **Secure 플래그**: production 환경에서만 HTTPS 강제
+- **bcryptjs 타이밍 안전 비교**: 사용자 존재 여부 비노출 (균일한 오류 메시지)
+- **인메모리 레이트 리미팅**: POST /api/auth/login 15분 5회 제한 (429 응답)
+- **JWT_SECRET 검증**: 32바이트 이상 강제 (서버 시작 시 검증, 미충족 시 exit(1))
+
+### 인증 플로우
+1. 사용자가 `/login`에서 username/password 제출
+2. 서버가 bcryptjs로 비밀번호 검증
+3. 성공 시 Access + Refresh 토큰 발급 후 HttpOnly 쿠키 설정
+4. 클라이언트는 모든 요청 시 쿠키가 자동 포함됨
+5. `requireAuth` 미들웨어가 Access 토큰 검증 + 블랙리스트 조회
+6. `/logout` 시 토큰 jti를 블랙리스트 등록 후 쿠키 만료
+
+### SvelteKit 통합
+- **hooks.server.ts**: 전역 쿠키 파싱 및 event.locals 주입
+- **/(app) 보호 라우트**: +layout.server.ts에서 세션 검증, 미인증 시 /login 리다이렉트
+- **절대 URL fetch**: SvelteKit 무한 재귀 방지 (hooks 재진입 차단)
+- **INTERNAL_API_URL**: 내부 API 호스트 오버라이드 가능 (기본: http://localhost:3000)
+
+---
 
 ## 보안 원칙 및 제약사항
 

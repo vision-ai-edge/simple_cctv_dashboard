@@ -1,7 +1,7 @@
 ---
 id: SPEC-AUTH-001
-version: 0.1.0
-status: Draft
+version: 0.2.0
+status: Implemented
 created: 2026-05-12
 updated: 2026-05-12
 author: imgughyeon
@@ -14,6 +14,7 @@ priority: High
 
 | 날짜 | 버전 | 변경 사항 | 작성자 |
 |------|------|---------|--------|
+| 2026-05-12 | 0.2.0 | 구현 완료 및 동기화 (Hybrid TDD, 124개 테스트 통과) | imgughyeon |
 | 2026-05-12 | 0.1.0 | 초안 작성 | imgughyeon |
 
 ---
@@ -333,6 +334,52 @@ function buildCookieOptions(maxAgeSeconds: number): {
 | **bcrypt** | 단방향 해시 함수. 비밀번호 저장 및 타이밍 안전 비교에 사용 |
 | **Token Blacklist** | 로그아웃/폐기된 토큰의 jti를 DB에 기록하여 재사용을 차단하는 메커니즘 |
 | **Rate Limiting** | 단위 시간당 요청 횟수를 제한하여 브루트포스 공격을 완화하는 기법 |
+
+---
+
+## 구현 노트 (Implementation Notes)
+
+### 구현 결과 요약
+
+- Hybrid TDD 모드 (신규 코드 RED-GREEN-REFACTOR)로 7개 태스크 (T1~T7) 완료
+- 합계 신규 파일 25+개, 수정 파일 18+개, 총 3986라인 추가
+- 테스트: 124개 전원 통과 (auth 도메인 39개 신규)
+- 품질: typecheck 0 오류, Biome lint 0 오류, TRUST 5 PASS
+- 요구사항 매핑: REQ-AUTH-001 ~ REQ-AUTH-016 100% 구현
+- 인수 시나리오: AC-AUTH-001 ~ AC-AUTH-008 + EC-AUTH-001~005 자동/문서 커버
+
+### 계획 대비 변경 사항 (Divergence)
+
+| 항목 | 계획 | 실제 | 사유 |
+|------|------|------|------|
+| 테스트 러너 | vitest 가정 | bun:test | 기존 코드베이스 (SPEC-CORE-001) 일관성 |
+| jose 패키지 | ^5.8.0 | ^5.10.0 (최신 5.x) | 호환 minor — package.json은 ^5.8.0 명시 |
+| schema 파일 | 단일 schema.ts에 추가 | schema/auth.ts 분리 | 도메인별 분리로 가독성 향상 |
+| apps/web 입력 검증 | Zod | 수동 검증 함수 | apps/web에 Zod 미설치, 의존성 절약 |
+| DUMMY_HASH 라운드 | 명시 없음 | bcrypt 4라운드 | 더미 비교 전용, 타이밍 안전성 충족 |
+| 테스트 디렉터리 | routes/*/__tests__ | src/__tests__/routes | SvelteKit + 접두사 예약 충돌 |
+
+### Dev 환경 통합 후 추가 변경 사항 (커밋 4d970ec)
+
+로컬 dev 환경 실행 시 발견한 통합 이슈와 보완 조치:
+
+- **API 라우트 마운트 통일**: health 라우트가 `/health`에 마운트되어 있었고 auth는 SPEC 명시대로 `/api/auth`에 마운트되어 경로 불일치. 모든 라우트를 `/api` prefix로 통일 (`/api/health`, `/api/auth/login` 등).
+- **Vite proxy rewrite 제거**: 기존 `/api → ''` rewrite가 SPEC 경로와 충돌 → 단순 패스스루로 변경.
+- **SvelteKit hooks 무한 재귀 방지**: `hooks.server.ts`의 `event.fetch('/api/auth/me')`가 SvelteKit 라우터를 거치며 hooks 재진입을 일으켜 OOM 발생. 두 가지 보호장치 적용 — `/api/*` 경로는 hook 우회 + 절대 URL `fetch` 사용.
+- **`getCurrentUser` 시그니처 단순화**: `event` 객체 의존을 제거하고 `token: string` 만 받도록 변경.
+- **`INTERNAL_API_URL` 환경 변수 추가**: 내부 API 호스트 오버라이드 가능 (기본값 `http://localhost:3000`).
+- **.env.example 가이드 보강**: JWT_SECRET 32바이트 요구사항 명시, DATABASE_PATH 절대 경로 권장 (모노레포 cwd 의존 문제 예방).
+
+### 향후 작업 (LOW 우선순위, 차단 사항 아님)
+
+- 레이트 리미터 Redis 마이그레이션 (현재 인메모리는 단일 프로세스만)
+- 블랙리스트 등록 로직 헬퍼 함수화 (auth.ts 내 3곳 동일 패턴)
+- E2E 테스트(Playwright) 추가
+- JWT 클레임에 username 포함 검토 (hooks에서 API 호출 절약)
+
+### 알려진 환경 이슈
+
+루트에서 `bun test`를 직접 실행하면 빌드 산출물 `dist/`도 함께 실행되며 `migrations` 경로 누락으로 15개 테스트 실패 — SPEC-CORE-001부터 알려진 환경 이슈. 공식 명령 `bun run --filter='*' test` (또는 root `bun run test`) 로 실행하면 124개 모두 통과.
 
 ---
 

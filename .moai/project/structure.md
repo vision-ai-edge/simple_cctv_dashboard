@@ -62,29 +62,33 @@
 ```
 simple_cctv_dashboard/
 ├── packages/
-│   ├── shared/                    # 공유 타입 및 유틸리티
+│   ├── shared/                    # EdgeAI Box 타입 클라이언트 및 JWT 유틸
 │   │   ├── src/
-│   │   │   ├── types/
-│   │   │   │   ├── camera.ts       # Camera, CameraGroup 타입
-│   │   │   │   ├── box.ts          # Box, BoxAuth 타입
-│   │   │   │   ├── alert.ts        # Alert, AlertRule 타입
-│   │   │   │   ├── user.ts         # User 타입
-│   │   │   │   └── index.ts
+│   │   │   ├── edgeai-box-client/
+│   │   │   │   ├── client.ts       # BoxClient (40+ 엔드포인트)
+│   │   │   │   ├── types.ts        # Zod 스키마 (응답 검증)
+│   │   │   │   └── error.ts        # BoxApiError 커스텀 예외
+│   │   │   ├── jwt/
+│   │   │   │   └── index.ts        # JWT 유틸 (SPEC-AUTH-001)
+│   │   │   │       # signAccessToken, signRefreshToken, verifyToken, parseTokenClaims, assertJwtSecret
 │   │   │   ├── constants/
-│   │   │   │   ├── api.ts          # API 경로
-│   │   │   │   ├── errors.ts       # 에러 코드
-│   │   │   │   └── limits.ts       # 제한값
-│   │   │   └── utils/
-│   │   │       ├── validation.ts   # Zod 스키마
-│   │   │       └── format.ts       # 포매팅 유틸
+│   │   │   │   └── index.ts        # API 경로, 에러 코드, 제한값
+│   │   │   └── index.ts
 │   │   ├── package.json
 │   │   └── tsconfig.json
 │   │
 │   └── db/                          # 데이터베이스 스키마
 │       ├── src/
-│       │   ├── schema.ts            # Drizzle 테이블 정의
-│       │   ├── migrations/          # SQL 마이그레이션
-│       │   │   └── 0001_init.sql
+│       │   ├── schema/
+│       │   │   ├── index.ts          # 9개 테이블 정의
+│       │   │   └── auth.ts           # auth_token_blacklist 스키마 (SPEC-AUTH-001)
+│       │   ├── helpers/
+│       │   │   └── auth.ts           # blacklistJti, isJtiBlacklisted 헬퍼
+│       │   ├── migrations/           # SQL 마이그레이션
+│       │   │   ├── 0001_initial.sql
+│       │   │   └── 0002_auth_blacklist.sql (SPEC-AUTH-001)
+│       │   ├── migrate.ts            # 마이그레이션 러너
+│       │   ├── seed.ts               # 시드 스크립트
 │       │   └── index.ts
 │       ├── package.json
 │       └── drizzle.config.ts
@@ -93,16 +97,17 @@ simple_cctv_dashboard/
 │   ├── api/                         # Hono 백엔드 서버
 │   │   ├── src/
 │   │   │   ├── index.ts             # 서버 엔트리포인트
-│   │   │   ├── middleware/          # 인증, CORS, 로깅
-│   │   │   │   ├── auth.ts          # JWT 검증
-│   │   │   │   ├── errorHandler.ts
-│   │   │   │   └── corsHandler.ts
+│   │   │   ├── middleware/          # 인증, CORS, 로깅, 레이트 리미팅
+│   │   │   │   ├── requireAuth.ts   # JWT 검증 미들웨어 (SPEC-AUTH-001)
+│   │   │   │   ├── rateLimit.ts     # 로그인 횟수 제한 (SPEC-AUTH-001)
+│   │   │   │   └── index.ts
 │   │   │   ├── routes/
-│   │   │   │   ├── auth.ts          # POST /auth/login, /logout
-│   │   │   │   ├── cameras.ts       # GET/POST /cameras
-│   │   │   │   ├── boxes.ts         # GET/POST /boxes, /sync
-│   │   │   │   ├── alerts.ts        # GET /alerts, WebSocket SSE
-│   │   │   │   └── stream.ts        # GET /stream/:cameraId (HLS proxy)
+│   │   │   │   ├── health.ts        # GET /api/health
+│   │   │   │   ├── auth.ts          # /api/auth/* (login, logout, me, refresh) — SPEC-AUTH-001
+│   │   │   │   ├── cameras.ts       # GET/POST /api/cameras (후속)
+│   │   │   │   ├── boxes.ts         # GET/POST /api/boxes (후속)
+│   │   │   │   ├── alerts.ts        # GET /api/alerts (후속)
+│   │   │   │   └── index.ts
 │   │   │   ├── services/
 │   │   │   │   ├── authService.ts   # 사용자 인증 로직
 │   │   │   │   ├── boxService.ts    # Box API 클라이언트
@@ -122,43 +127,42 @@ simple_cctv_dashboard/
 │   └── web/                         # SvelteKit 프론트엔드
 │       ├── src/
 │       │   ├── app.html             # HTML 템플릿
+│       │   ├── app.d.ts             # Locals, PageData 타입 (SPEC-AUTH-001)
+│       │   ├── hooks.server.ts      # 전역 쿠키 검증 (SPEC-AUTH-001)
 │       │   ├── routes/
-│       │   │   ├── +page.svelte      # 지도 대시보드 페이지
-│       │   │   ├── +layout.svelte    # 레이아웃 (네비게이션)
+│       │   │   ├── +page.svelte      # 루트 페이지 (리다이렉트)
+│       │   │   ├── +layout.svelte    # 루트 레이아웃
 │       │   │   ├── login/
-│       │   │   │   └── +page.svelte  # 로그인 페이지
-│       │   │   ├── cameras/
-│       │   │   │   └── [id]/
-│       │   │   │       └── +page.svelte  # 카메라 상세보기 (라이브)
-│       │   │   └── settings/
-│       │   │       └── +page.svelte  # Box 등록/설정
+│       │   │   │   ├── +page.svelte  # 로그인 폼 (SPEC-AUTH-001)
+│       │   │   │   └── +page.server.ts # 서버 액션 (SPEC-AUTH-001)
+│       │   │   ├── logout/
+│       │   │   │   └── +page.server.ts # 로그아웃 액션 (SPEC-AUTH-001)
+│       │   │   └── (app)/
+│       │   │       ├── +layout.server.ts # 보호 라우트 가드 (SPEC-AUTH-001)
+│       │   │       ├── +layout.svelte    # 앱 레이아웃
+│       │   │       ├── +page.svelte      # 대시보드 (후속 SPEC)
+│       │   │       └── [기타 보호 라우트]
 │       │   ├── lib/
 │       │   │   ├── components/
-│       │   │   │   ├── Map.svelte    # 지도 컴포넌트 (Leaflet)
-│       │   │   │   ├── LiveStream.svelte  # HLS 비디오 플레이어
-│       │   │   │   ├── AlertToast.svelte  # 알림 토스트
-│       │   │   │   ├── CameraMarker.svelte
-│       │   │   │   ├── CameraList.svelte
-│       │   │   │   └── BoxRegisterModal.svelte
+│       │   │   │   └── [UI 컴포넌트 - 후속]
+│       │   │   ├── server/
+│       │   │   │   └── auth.ts       # getCurrentUser 헬퍼 (SPEC-AUTH-001)
 │       │   │   ├── stores/
-│       │   │   │   ├── auth.ts       # 사용자/인증 상태
-│       │   │   │   ├── cameras.ts    # 카메라 목록 상태
-│       │   │   │   ├── alerts.ts     # 알림 상태 (SSE 구독)
-│       │   │   │   └── ui.ts         # UI 상태 (모달, 선택)
-│       │   │   ├── api/
-│       │   │   │   └── client.ts     # API 호출 함수들
+│       │   │   │   ├── auth.ts       # 클라이언트 auth 스토어 (SPEC-AUTH-001)
+│       │   │   │   └── [UI 스토어 - 후속]
 │       │   │   ├── utils/
-│       │   │   │   ├── format.ts     # 데이터 포매팅
-│       │   │   │   └── auth.ts       # 토큰 관리
+│       │   │   │   └── [헬퍼 함수 - 후속]
 │       │   │   └── types/
-│       │   │       └── index.ts      # 재내보기
-│       │   ├── styles/
-│       │   │   ├── app.css           # 전역 스타일 (Tailwind)
-│       │   │   └── theme.css         # 테마 변수
-│       │   └── hooks.server.ts       # 서버 훅 (쿠키 관리)
+│       │   │       └── [타입 정의 - 후속]
+│       │   ├── __tests__/
+│       │   │   └── routes/
+│       │   │       └── [로그인/보호 라우트 테스트]
+│       │   └── styles/
+│       │       └── app.css           # 전역 스타일 (Tailwind)
 │       ├── package.json
 │       ├── svelte.config.js
-│       └── tsconfig.json
+│       ├── tsconfig.json
+│       └── vite.config.ts
 │
 ├── package.json                     # 워크스페이스 루트
 ├── bunfig.toml                      # Bun 설정

@@ -10,9 +10,73 @@
 
 ### Planned
 
-- SPEC-AUTH-001: 로그인 / JWT 토큰 발급 / API Key 관리 UI
+- SPEC-AUTH-002: 비밀번호 변경 / API Key 관리 UI
 - SPEC-BOX-001: EdgeAI Box 등록 CRUD
 - SPEC-MAP-001: 지도 기반 카메라 마커 시각화
+
+---
+
+## [0.2.0] — 2026-05-12
+
+### Added — SPEC-AUTH-001 (JWT 쿠키 기반 사용자 인증)
+
+#### packages/db — 토큰 블랙리스트
+- `auth_token_blacklist` 테이블 신규 (id, jti UNIQUE, user_id FK, expires_at, created_at)
+- 마이그레이션 `0002_auth_blacklist.sql` 추가
+- `blacklistJti`, `isJtiBlacklisted` 헬퍼 (cleanup 트랜잭션 포함)
+- 단위 테스트 15개
+
+#### packages/shared — JWT 유틸리티
+- `signAccessToken`, `signRefreshToken`, `verifyToken`, `parseTokenClaims`, `assertJwtSecret`
+- HS256 서명, ULID jti, iss="simple_cctv"
+- Access 15분 / Refresh 7일 만료
+- jose ^5.8 의존성 추가
+- 단위 테스트 19개
+
+#### apps/api — 인증 미들웨어 및 라우트
+- `requireAuth` 미들웨어 (쿠키 → verifyToken → 블랙리스트 조회 → context 주입)
+- `rateLimit` 미들웨어 (15분 5회 초과 시 429 + Retry-After)
+- `POST /api/auth/login` — Zod 검증, bcryptjs 타이밍 안전 비교, 쿠키 2종 발급
+- `POST /api/auth/logout` — jti 블랙리스트, 쿠키 만료
+- `GET /api/auth/me` — 인증 사용자 정보
+- `POST /api/auth/refresh` — Refresh 로테이션, 재사용 감지 시 401
+- 통합 + 단위 테스트 39개
+
+#### apps/web — SvelteKit 로그인 및 보호 라우트
+- `/login` 페이지 + 서버 액션 (한국어 폼, 로딩 상태)
+- `/(app)` 보호 라우트 그룹 + `+layout.server.ts` 가드
+- `/logout` 액션
+- `hooks.server.ts` — 전역 쿠키 검증
+- `lib/server/auth.ts` — getCurrentUser 헬퍼
+- `lib/stores/auth.ts` — 클라이언트 auth 스토어
+- `app.d.ts` Locals/PageData 타입
+- 단위 테스트 21개
+
+### Changed
+
+- API 라우트 마운트 경로를 `/api` prefix 로 통일 (`/health` → `/api/health` 포함)
+- Vite proxy 의 `/api → ''` rewrite 제거 — SPEC 명시 경로 패스스루
+- `JWT_SECRET` 환경 변수를 선택 → **필수**로 변경 (32바이트 이상)
+- `.env.example`: JWT_SECRET 가이드, DATABASE_PATH 절대 경로 권장
+
+### Security
+
+- HttpOnly + SameSite=Lax + Secure(prod 한정) 쿠키 강제
+- bcryptjs 타이밍 안전 비밀번호 비교, 균일한 오류 메시지 (사용자 존재 여부 비노출)
+- 인메모리 레이트 리미팅 (`POST /api/auth/login` 15분 5회)
+- Refresh 토큰 로테이션 + 재사용 감지 (블랙리스트 jti 매칭 시 401)
+- JWT_SECRET 32바이트 미만 시 서버 시작 거부
+
+### Fixed
+
+- SvelteKit `hooks.server.ts` 무한 재귀 (event.fetch 가 라우터 통해 hooks 재진입) → 절대 URL fetch 로 우회
+- 모노레포에서 `DATABASE_PATH` 상대 경로의 cwd 의존 문제 — `.env.example` 가이드 보강
+
+### Documentation
+
+- `.moai/specs/SPEC-AUTH-001/spec.md`: status Implemented, Implementation Notes 섹션 추가
+- `.moai/project/{structure,tech,product}.md`: SPEC-AUTH-001 결과 반영
+- `README.md`: 인증 가이드, 환경 변수 표, 헬스체크 경로 갱신
 
 ---
 
@@ -82,5 +146,6 @@
 
 ---
 
-[Unreleased]: https://github.com/vision-ai-edge/simple_cctv_dashboard/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/vision-ai-edge/simple_cctv_dashboard/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/vision-ai-edge/simple_cctv_dashboard/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/vision-ai-edge/simple_cctv_dashboard/releases/tag/v0.1.0

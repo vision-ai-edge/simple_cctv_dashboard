@@ -4,7 +4,7 @@ EdgeAI Box API 기반 CCTV 통합 관제 대시보드.
 
 지도에 카메라를 배치하고, AI 검출 결과를 알림으로 받으며, HLS/WebRTC 라이브 영상을 통합 관리하는 단일 사용자 운영자용 웹 애플리케이션입니다.
 
-> **현재 상태**: SPEC-CORE-001 (기반 구조) 구현 완료. 인증/지도/라이브뷰/알림 기능은 후속 SPEC에서 추가됩니다.
+> **현재 상태**: SPEC-CORE-001 (기반 구조) + SPEC-AUTH-001 (JWT 쿠키 인증) 구현 완료. 지도/라이브뷰/알림 기능은 후속 SPEC에서 추가됩니다.
 
 ---
 
@@ -23,7 +23,10 @@ bun install
 
 # 2) 환경 변수 설정
 cp .env.example .env
-# .env 파일을 열어 DATABASE_PATH, ADMIN_USERNAME, ADMIN_PASSWORD 등 수정
+# .env 파일을 열어 다음 항목을 수정:
+# - DATABASE_PATH: 절대 경로 권장 (예: $PWD/data/cctv.sqlite)
+# - JWT_SECRET: 32바이트 이상 (생성: openssl rand -base64 48)
+# - ADMIN_USERNAME, ADMIN_PASSWORD: 초기 관리자 자격증명
 
 # 3) 데이터베이스 초기화 + 관리자 시드
 DATABASE_PATH="$PWD/data/cctv.sqlite" bun run db:migrate
@@ -38,9 +41,11 @@ DATABASE_PATH="$PWD/data/cctv.sqlite" bun run dev
 ### 헬스 체크
 
 ```bash
-curl http://localhost:3000/health
+curl http://localhost:3000/api/health
 # {"ok":true,"version":"0.1.0"}
 ```
+
+또는 브라우저에서 [`http://localhost:5173/api/health`](http://localhost:5173/api/health) 접속.
 
 ---
 
@@ -50,23 +55,48 @@ curl http://localhost:3000/health
 simple_cctv_dashboard/
 ├── apps/
 │   ├── api/                 # Bun + Hono 백엔드 (REST API)
+│   │   └── src/
+│   │       ├── middleware/
+│   │       │   ├── requireAuth.ts    # JWT 인증 미들웨어
+│   │       │   └── rateLimit.ts      # 로그인 횟수 제한
+│   │       └── routes/
+│   │           ├── health.ts         # 헬스 체크
+│   │           └── auth.ts           # /api/auth/* (login, logout, me, refresh)
 │   └── web/                 # SvelteKit + Tailwind 4 프론트엔드
+│       └── src/
+│           ├── hooks.server.ts       # 전역 쿠키 검증
+│           ├── routes/
+│           │   ├── login/            # /login 페이지
+│           │   ├── logout/           # /logout 액션
+│           │   └── (app)/            # 보호 라우트 그룹 (인증 필수)
+│           └── lib/
+│               ├── server/auth.ts    # getCurrentUser 헬퍼
+│               └── stores/auth.ts    # 클라이언트 auth 스토어
 ├── packages/
-│   ├── shared/              # EdgeAI Box 타입 클라이언트 (`@cctv/shared`)
-│   │   └── src/edgeai-box-client/
-│   │       ├── client.ts    # BoxClient (auth/channels/models/visionAi/media/hls/webrtc)
-│   │       ├── types.ts     # Zod 스키마
-│   │       └── error.ts     # BoxApiError 커스텀 예외
+│   ├── shared/              # EdgeAI Box & JWT 유틸 (`@cctv/shared`)
+│   │   └── src/
+│   │       ├── edgeai-box-client/
+│   │       │   ├── client.ts    # BoxClient (auth/channels/models/visionAi/media/hls/webrtc)
+│   │       │   ├── types.ts     # Zod 스키마
+│   │       │   └── error.ts     # BoxApiError 커스텀 예외
+│   │       └── jwt/
+│   │           └── index.ts     # JWT 서명/검증 유틸 (HS256)
 │   └── db/                  # Drizzle ORM + bun:sqlite (`@cctv/db`)
 │       └── src/
-│           ├── schema.ts    # 8개 테이블 정의
-│           ├── migrate.ts   # 마이그레이션 러너 CLI
-│           ├── seed.ts      # 관리자 시드 CLI
-│           └── migrations/  # SQL 마이그레이션 파일
+│           ├── schema/
+│           │   ├── index.ts      # 9개 테이블 정의
+│           │   └── auth.ts       # auth_token_blacklist 테이블
+│           ├── helpers/auth.ts   # 블랙리스트 헬퍼 함수
+│           ├── migrate.ts        # 마이그레이션 러너 CLI
+│           ├── seed.ts           # 관리자 시드 CLI
+│           └── migrations/
+│               ├── 0001_initial.sql
+│               └── 0002_auth_blacklist.sql
 ├── .moai/                   # MoAI-ADK 프로젝트 메타데이터
 │   ├── config/sections/     # quality, workflow, language, user 설정
 │   ├── project/             # product, structure, tech 문서
-│   └── specs/SPEC-CORE-001/ # SPEC 명세 + 계획 + 인수기준
+│   ├── specs/SPEC-CORE-001/ # SPEC 명세 + 계획 + 인수기준
+│   └── specs/SPEC-AUTH-001/ # JWT 인증 SPEC (완료)
 ├── package.json             # Bun workspaces (apps/* + packages/*)
 ├── tsconfig.json            # TypeScript project references
 ├── tsconfig.base.json       # 공통 컴파일러 옵션
@@ -88,6 +118,7 @@ simple_cctv_dashboard/
 | 스타일 | [Tailwind CSS](https://tailwindcss.com) | `^4.0` |
 | 검증 | [Zod](https://zod.dev) | `^3.23` |
 | 비밀번호 해시 | bcryptjs | `^2.4` |
+| JWT 인증 | [jose](https://github.com/panva/jose) (HS256) | `^5.10` |
 | 식별자 | [ULID](https://github.com/ulid/spec) | — |
 | 린트 + 포맷 | [Biome](https://biomejs.dev) | `^1.9` |
 | 테스트 | `bun:test` | (내장) |
@@ -121,11 +152,12 @@ simple_cctv_dashboard/
 
 | 변수 | 필수 | 설명 |
 |------|------|------|
-| `DATABASE_PATH` | 필수 | SQLite 파일 경로 (절대 경로 권장) |
+| `DATABASE_PATH` | 필수 | SQLite 파일 경로 (**절대 경로 권장** — 모노레포에서 cwd 의존 문제 예방) |
 | `API_PORT` | 선택 | API 서버 포트 (기본 3000) |
 | `NODE_ENV` | 선택 | `development` / `test` / `production` |
-| `JWT_SECRET` | 후속 SPEC | JWT 서명 키 (SPEC-AUTH-*) |
-| `BOX_VAULT_KEY` | 후속 SPEC | Box 자격증명 암호화 키 (32 bytes hex) |
+| `JWT_SECRET` | **필수** | JWT 서명 키 — **32바이트 이상 필수** (`openssl rand -base64 48` 권장). 서버 시작 시 검증, 미충족 시 종료 |
+| `INTERNAL_API_URL` | 선택 | SvelteKit hooks 가 호출하는 내부 API URL (기본 `http://localhost:3000`) |
+| `BOX_VAULT_KEY` | 후속 SPEC | Box 자격증명 암호화 키 (32 bytes hex) — SPEC-BOX-* |
 | `ADMIN_USERNAME` | 시드 시 | 기본 관리자 사용자명 |
 | `ADMIN_PASSWORD` | 시드 시 | 기본 관리자 비밀번호 |
 | `VAPID_*` | 후속 SPEC | WebPush (SPEC-ALERT-*) |
@@ -135,9 +167,10 @@ simple_cctv_dashboard/
 
 ## 데이터 모델
 
-8개 테이블로 구성됩니다 (자세한 컬럼은 `packages/db/src/schema.ts` 참조):
+9개 테이블로 구성됩니다 (자세한 컬럼은 `packages/db/src/schema/` 참조):
 
-- `users` — 관리자 계정
+- `users` — 관리자 계정 (username, hashed_password, email)
+- `auth_token_blacklist` — 로그아웃된 토큰 (jti UNIQUE, expires_at로 cleanup)
 - `boxes` — EdgeAI Box 등록 정보 (자격증명 AES-GCM 암호화)
 - `cameras` — 박스 산하 카메라 (지도 좌표 포함)
 - `camera_groups` — 카메라 그룹화
@@ -160,17 +193,31 @@ simple_cctv_dashboard/
 
 ---
 
+## 인증 사용 가이드
+
+SPEC-AUTH-001 로 구현된 JWT HttpOnly 쿠키 기반 인증:
+
+- **로그인**: `/login` 페이지에서 기본 관리자 계정(ADMIN_USERNAME/ADMIN_PASSWORD)으로 로그인
+- **토큰 발급**: 성공 시 HttpOnly 쿠키 자동 설정 (Access 15분, Refresh 7일)
+- **보호 라우트**: `/(app)` 라우트 그룹은 세션 검증 필수 (미인증 시 `/login` 리다이렉트)
+- **API 직접 호출**: Access 토큰은 쿠키에만 저장되며, API 호출 시 `Cookie` 헤더로 자동 전송
+- **필수 환경 변수**: `JWT_SECRET` (32바이트 이상) — 미충족 시 서버 시작 실패
+- **로그아웃**: `/logout` 액션으로 토큰 폐기 및 쿠키 만료
+
+---
+
 ## 후속 SPEC 로드맵
 
-| SPEC | 범위 |
-|------|------|
-| `SPEC-AUTH-*` | 로그인 / 비밀번호 변경 / API Key 관리 UI |
-| `SPEC-BOX-*` | Box 등록 / 동기화 / 자격증명 관리 |
-| `SPEC-MAP-*` | 지도 기반 카메라 마커 / 그룹 시각화 |
-| `SPEC-LIVE-*` | HLS / WebRTC 라이브 뷰어 |
-| `SPEC-MEDIA-*` | 녹화 / 스냅샷 / 타임랩스 브라우저 |
-| `SPEC-ALERT-*` | AI 검출 폴러 / WebPush / Telegram 알림 |
-| `SPEC-OPS-*` | Docker / CI / 모니터링 |
+| SPEC | 범위 | 상태 |
+|------|------|------|
+| `SPEC-AUTH-001` | JWT 쿠키 기반 로그인 / Refresh 로테이션 / 보호 라우트 가드 | ✅ 완료 |
+| `SPEC-AUTH-002` | 비밀번호 변경 / API Key 관리 | 계획 |
+| `SPEC-BOX-001` | Box 등록 / 동기화 / 자격증명 관리 | 계획 |
+| `SPEC-MAP-001` | 지도 기반 카메라 마커 / 그룹 시각화 | 계획 |
+| `SPEC-LIVE-001` | HLS / WebRTC 라이브 뷰어 | 계획 |
+| `SPEC-MEDIA-001` | 녹화 / 스냅샷 / 타임랩스 브라우저 | 계획 |
+| `SPEC-ALERT-001` | AI 검출 폴러 / WebPush / Telegram 알림 | 계획 |
+| `SPEC-OPS-001` | Docker / CI / 모니터링 | 계획 |
 
 ---
 

@@ -16,7 +16,8 @@ import { createLogger } from './logger';
 const config = loadConfig();
 const logger = createLogger({ mode: config.NODE_ENV });
 const db = initDb({ databasePath: config.DATABASE_PATH, logger });
-const app = createApp({ db, logger, mode: config.NODE_ENV });
+// SPEC-AUTH-001: jwtSecret 주입
+const app = createApp({ db, logger, mode: config.NODE_ENV, jwtSecret: config.JWT_SECRET });
 
 logger.info('CCTV API 서버 시작', { port: config.API_PORT, mode: config.NODE_ENV });
 

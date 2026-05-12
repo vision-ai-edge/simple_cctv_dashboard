@@ -17,7 +17,13 @@ const EnvSchema = z.object({
   JWT_SECRET: z
     .string({ required_error: 'JWT_SECRET 환경 변수가 필요합니다.' })
     .min(32, 'JWT_SECRET 는 최소 32바이트 이상이어야 합니다.'),
-  BOX_VAULT_KEY: z.string().optional(),
+  // SPEC-BOX-001 REQ-MOD-1: AES-GCM 자격증명 볼트 키 (32바이트 = 64자 hex)
+  BOX_VAULT_KEY: z
+    .string({ required_error: 'BOX_VAULT_KEY 환경 변수가 필요합니다.' })
+    .length(64, 'BOX_VAULT_KEY 는 64자 hex 문자열이어야 합니다.')
+    .regex(/^[0-9a-fA-F]{64}$/, 'BOX_VAULT_KEY 는 hex 문자열이어야 합니다.'),
+  // SPEC-BOX-001 REQ-MOD-4: Box 상태 폴링 주기 (ms, 기본 60초)
+  BOX_STATUS_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
 });
 
 export type AppConfig = z.infer<typeof EnvSchema>;

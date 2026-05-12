@@ -10,6 +10,7 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "paths": {
       "@cctv/shared": ["../../packages/shared/src/index.ts"],
+      "@cctv/shared/crypto/vault": ["../../packages/shared/src/crypto/vault.ts"],
       "@cctv/db": ["../../packages/db/src/index.ts"],
       "@cctv/db/schema": ["../../packages/db/src/schema.ts"]
     }

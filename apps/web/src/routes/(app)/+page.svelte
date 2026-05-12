@@ -1,6 +1,16 @@
 <script lang="ts">
+/**
+ * 인증된 사용자 홈 페이지 (대시보드 메인).
+ *
+ * 기존 루트 +page.svelte의 CCTV 헬스 체크 컨텐츠를 이 페이지로 이전하였다.
+ * $page.data.user는 (app)/+layout.server.ts에서 제공된다.
+ */
+
 import { type HealthState, fetchHealth } from '$lib/api/client';
 import { onMount } from 'svelte';
+import type { PageData } from './$types';
+
+const { data }: { data: PageData } = $props();
 
 let health = $state<HealthState>({ status: 'loading' });
 
@@ -29,7 +39,9 @@ const badgeLabel = $derived.by(() => {
   <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
     <div class="flex items-center justify-between">
       <div>
-        <h2 class="text-xl font-semibold text-slate-900">CCTV Dashboard</h2>
+        <h2 class="text-xl font-semibold text-slate-900">
+          안녕하세요, {data.user.username}님
+        </h2>
         <p class="mt-1 text-sm text-slate-500">
           EdgeAI Box 기반 통합 관제 시스템 — 기반 구조 단계 (SPEC-CORE-001)
         </p>
@@ -45,6 +57,6 @@ const badgeLabel = $derived.by(() => {
   </div>
 
   <div class="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
-    다음 단계: SPEC-AUTH-* (로그인), SPEC-BOX-* (박스 등록), SPEC-MAP-* (지도 마커).
+    다음 단계: SPEC-BOX-* (박스 등록), SPEC-MAP-* (지도 마커).
   </div>
 </section>

@@ -1,17 +1,14 @@
 <script lang="ts">
+/**
+ * 루트 레이아웃.
+ *
+ * 전역 CSS 임포트 및 공통 메타데이터를 담당한다.
+ * 인증된 영역의 레이아웃은 (app)/+layout.svelte에서 제공한다.
+ */
+
 import '../app.css';
 
 const { children } = $props();
 </script>
 
-<div class="min-h-screen flex flex-col">
-  <header class="border-b border-slate-200 bg-white">
-    <div class="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
-      <h1 class="text-lg font-semibold text-slate-900">CCTV Dashboard</h1>
-      <nav class="text-sm text-slate-500">v0.1.0</nav>
-    </div>
-  </header>
-  <main class="flex-1 mx-auto max-w-6xl w-full px-6 py-8">
-    {@render children?.()}
-  </main>
-</div>
+{@render children()}

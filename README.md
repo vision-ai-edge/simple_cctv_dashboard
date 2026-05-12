@@ -4,7 +4,7 @@ EdgeAI Box API 기반 CCTV 통합 관제 대시보드.
 
 지도에 카메라를 배치하고, AI 검출 결과를 알림으로 받으며, HLS/WebRTC 라이브 영상을 통합 관리하는 단일 사용자 운영자용 웹 애플리케이션입니다.
 
-> **현재 상태**: SPEC-CORE-001 (기반 구조) + SPEC-AUTH-001 (JWT 쿠키 인증) 구현 완료. 지도/라이브뷰/알림 기능은 후속 SPEC에서 추가됩니다.
+> **현재 상태**: SPEC-CORE-001 (기반 구조) + SPEC-AUTH-001 (JWT 쿠키 인증) + SPEC-BOX-001 (Box 등록 백엔드) 구현 완료. 채널 동기화/지도/라이브뷰/알림 기능은 후속 SPEC에서 추가됩니다.
 
 ---
 
@@ -26,6 +26,8 @@ cp .env.example .env
 # .env 파일을 열어 다음 항목을 수정:
 # - DATABASE_PATH: 절대 경로 권장 (예: $PWD/data/cctv.sqlite)
 # - JWT_SECRET: 32바이트 이상 (생성: openssl rand -base64 48)
+# - BOX_VAULT_KEY: 32바이트 hex (64자, 생성: openssl rand -hex 32) — Box 자격증명 AES-GCM 볼트 키 필수
+# - BOX_STATUS_POLL_INTERVAL_MS: 선택, 기본 60000 (60초) — Box 상태 폴링 주기
 # - ADMIN_USERNAME, ADMIN_PASSWORD: 초기 관리자 자격증명
 
 # 3) 데이터베이스 초기화 + 관리자 시드
@@ -157,7 +159,8 @@ simple_cctv_dashboard/
 | `NODE_ENV` | 선택 | `development` / `test` / `production` |
 | `JWT_SECRET` | **필수** | JWT 서명 키 — **32바이트 이상 필수** (`openssl rand -base64 48` 권장). 서버 시작 시 검증, 미충족 시 종료 |
 | `INTERNAL_API_URL` | 선택 | SvelteKit hooks 가 호출하는 내부 API URL (기본 `http://localhost:3000`) |
-| `BOX_VAULT_KEY` | 후속 SPEC | Box 자격증명 암호화 키 (32 bytes hex) — SPEC-BOX-* |
+| `BOX_VAULT_KEY` | **필수 (SPEC-BOX-001)** | Box 자격증명 암호화 키 — **32바이트 hex (64자 필수)** (`openssl rand -hex 32` 권장). 서버 시작 시 검증, 미충족 시 종료 |
+| `BOX_STATUS_POLL_INTERVAL_MS` | 선택 | Box 상태 폴링 주기 (밀리초, 기본 60000 = 60초) — SPEC-BOX-001 |
 | `ADMIN_USERNAME` | 시드 시 | 기본 관리자 사용자명 |
 | `ADMIN_PASSWORD` | 시드 시 | 기본 관리자 비밀번호 |
 | `VAPID_*` | 후속 SPEC | WebPush (SPEC-ALERT-*) |

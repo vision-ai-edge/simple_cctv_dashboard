@@ -60,15 +60,22 @@ export const boxes = sqliteTable(
     username: text('username').notNull(),
     /** AES-GCM 암호화된 비밀번호 (master key: BOX_VAULT_KEY) */
     passwordEnc: blob('password_enc').notNull(),
+    // 하위 호환용 평문 캐시 컬럼 (신규 코드에서는 enc 컬럼 사용)
     jwtCached: text('jwt_cached'),
     jwtObtainedAt: integer('jwt_obtained_at'),
     apiKeyCached: text('api_key_cached'),
+    /** SPEC-BOX-001 REQ-MOD-1: AES-GCM 암호화된 JWT (12B IV + 암호문 + 16B tag) */
+    jwtCachedEnc: blob('jwt_cached_enc'),
+    /** SPEC-BOX-001 REQ-MOD-1: AES-GCM 암호화된 API Key (동일 형식) */
+    apiKeyCachedEnc: blob('api_key_cached_enc'),
     lastSyncAt: integer('last_sync_at'),
     status: text('status', { enum: boxStatusValues }).notNull().default('inactive'),
     createdAt: integer('created_at').notNull().default(nowMs),
     updatedAt: integer('updated_at').notNull().default(nowMs),
   },
   (t) => ({
+    /** SPEC-BOX-001 EC-BOX-003: base_url UNIQUE — 동일 host:port 중복 등록 방지 */
+    baseUrlIdx: uniqueIndex('idx_boxes_base_url_unique').on(t.baseUrl),
     statusIdx: index('boxes_status_idx').on(t.status),
   }),
 );

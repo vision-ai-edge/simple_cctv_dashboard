@@ -11,7 +11,10 @@ declare global {
       API_PORT?: string;
       NODE_ENV?: 'development' | 'test' | 'production';
       JWT_SECRET?: string;
+      // SPEC-BOX-001 REQ-MOD-1: AES-GCM 볼트 키 (64자 hex, 필수)
       BOX_VAULT_KEY?: string;
+      // SPEC-BOX-001 REQ-MOD-4: Box 상태 폴링 주기 (ms, 선택, 기본 60000)
+      BOX_STATUS_POLL_INTERVAL_MS?: string;
       ADMIN_USERNAME?: string;
       ADMIN_PASSWORD?: string;
     }

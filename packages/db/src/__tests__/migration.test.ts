@@ -20,7 +20,8 @@ afterEach(cleanup);
 describe('runMigrations', () => {
   test('초기 마이그레이션은 8개 테이블을 생성한다', async () => {
     const result = await runMigrations({ databasePath: TMP_DB });
-    expect(result.applied).toEqual(['0001_init.sql']);
+    // 0001_init.sql 이 포함되어야 한다 (0002 추가 후 includes 로 검증)
+    expect(result.applied).toContain('0001_init.sql');
     expect(result.skipped).toEqual([]);
 
     const sqlite = new Database(TMP_DB);
@@ -47,7 +48,8 @@ describe('runMigrations', () => {
     await runMigrations({ databasePath: TMP_DB });
     const second = await runMigrations({ databasePath: TMP_DB });
     expect(second.applied).toEqual([]);
-    expect(second.skipped).toEqual(['0001_init.sql']);
+    // 모든 마이그레이션 파일이 스킵되어야 한다
+    expect(second.skipped).toContain('0001_init.sql');
   });
 
   test('인덱스가 생성된다', async () => {

@@ -14,10 +14,14 @@
   "dependencies": {
     "@cctv/db": "workspace:*",
     "@cctv/shared": "workspace:*",
+    "bcryptjs": "^3.0.3",
     "hono": "^4.6.13",
+    "jose": "^5.8.0",
+    "ulid": "^3.0.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
     "@types/bun": "^1.2.0",
     "typescript": "^5.9.0"
   }

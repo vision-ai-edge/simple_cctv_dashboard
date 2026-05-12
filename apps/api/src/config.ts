@@ -13,7 +13,10 @@ const EnvSchema = z.object({
     .preprocess((v) => (v === undefined ? '3000' : v), z.coerce.number().int().positive())
     .default(3000),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  JWT_SECRET: z.string().min(1).optional(),
+  // SPEC-AUTH-001: JWT_SECRET 는 필수이며 최소 32바이트 이상이어야 한다
+  JWT_SECRET: z
+    .string({ required_error: 'JWT_SECRET 환경 변수가 필요합니다.' })
+    .min(32, 'JWT_SECRET 는 최소 32바이트 이상이어야 합니다.'),
   BOX_VAULT_KEY: z.string().optional(),
 });
 

@@ -19,13 +19,13 @@ function silentLogger() {
   };
 }
 
-describe('GET /health', () => {
+describe('GET /api/health', () => {
   test('200 + { ok: true, version }', async () => {
     if (existsSync(TMP_DB)) unlinkSync(TMP_DB);
     const db = createDb(TMP_DB);
     const app = createApp({ db, logger: silentLogger(), mode: 'test' });
 
-    const res = await app.request('/health');
+    const res = await app.request('/api/health');
     expect(res.status).toBe(200);
     const body = (await res.json()) as { ok: boolean; version: string };
     expect(body.ok).toBe(true);
@@ -56,7 +56,7 @@ describe('CORS (development mode)', () => {
     const db = createDb(TMP_DB);
     const app = createApp({ db, logger: silentLogger(), mode: 'development' });
 
-    const res = await app.request('/health', {
+    const res = await app.request('/api/health', {
       headers: { Origin: 'http://localhost:5173' },
     });
     expect(res.headers.get('access-control-allow-origin')).not.toBeNull();
@@ -68,7 +68,7 @@ describe('CORS (development mode)', () => {
     const db = createDb(TMP_DB);
     const app = createApp({ db, logger: silentLogger(), mode: 'production' });
 
-    const res = await app.request('/health', {
+    const res = await app.request('/api/health', {
       headers: { Origin: 'http://example.com' },
     });
     expect(res.status).toBe(200);

@@ -7,12 +7,15 @@ import type { Db } from '@cctv/db';
 import { Hono } from 'hono';
 import type { Logger } from './logger';
 import { createCorsMiddleware } from './middleware/corsHandler';
+import { createAuthRoutes } from './routes/auth';
 import { healthRoute } from './routes/health';
 
 export interface CreateAppOptions {
   db: Db;
   logger: Logger;
   mode: string;
+  // SPEC-AUTH-001: JWT 시크릿 주입
+  jwtSecret?: string;
 }
 
 export function createApp(opts: CreateAppOptions): Hono {
@@ -23,8 +26,16 @@ export function createApp(opts: CreateAppOptions): Hono {
     app.use('*', createCorsMiddleware());
   }
 
-  // 라우트 등록
-  app.route('/', healthRoute());
+  // 라우트 등록 — 모든 API 라우트는 /api prefix 사용 (web 의 Vite proxy 가 /api 를 그대로 전달)
+  app.route('/api', healthRoute());
+
+  // SPEC-AUTH-001: 인증 라우트 마운트 (jwtSecret 이 제공된 경우)
+  if (opts.jwtSecret) {
+    app.route(
+      '/api/auth',
+      createAuthRoutes({ db: opts.db, jwtSecret: opts.jwtSecret, nodeEnv: opts.mode }),
+    );
+  }
 
   // 글로벌 404
   app.notFound((c) => c.json({ success: false, message: 'not found', timestamp: Date.now() }, 404));

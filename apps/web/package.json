@@ -8,8 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "test": "echo 'apps/web has no unit tests yet (see SPEC-CORE-001 AC-5 for manual checks)'",
-    "test:cov": "echo 'apps/web coverage skipped'"
+    "test": "bun test src/__tests__/routes/login/page-server.test.ts src/__tests__/routes/app/layout-server.test.ts",
+    "test:cov": "bun test --coverage src/__tests__/routes/login/page-server.test.ts src/__tests__/routes/app/layout-server.test.ts"
   },
   "dependencies": {
     "@cctv/shared": "workspace:*"

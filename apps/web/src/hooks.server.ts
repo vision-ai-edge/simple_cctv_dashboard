@@ -5,34 +5,42 @@
  * event.locals.user에 사용자 정보를 주입한다.
  *
  * 흐름:
- *   1. access_token 쿠키 확인
- *   2. 없으면 event.locals.user = null 설정 후 다음으로 통과
- *   3. 있으면 /api/auth/me 호출하여 검증
- *   4. 검증 성공: event.locals.user = 사용자 정보
- *   5. 검증 실패(401 등): 만료된 쿠키 삭제 후 event.locals.user = null
+ *   1. /api/* 경로는 Vite proxy 로 API 서버에 전달되므로 hook 우회 (무한 재귀 방지)
+ *   2. access_token 쿠키 확인
+ *   3. 없으면 event.locals.user = null 설정 후 다음으로 통과
+ *   4. 있으면 API 서버에 직접 호출하여 검증 (event.fetch 미사용 — hooks 재귀 방지)
+ *   5. 검증 성공: event.locals.user = 사용자 정보
+ *   6. 검증 실패(401 등): 만료된 쿠키 삭제 후 event.locals.user = null
  */
 
 import { getCurrentUser } from '$lib/server/auth';
 import type { Handle } from '@sveltejs/kit';
 
 export const handle: Handle = async ({ event, resolve }) => {
-  const token = event.cookies.get('access_token');
-
-  if (!token) {
-    // 토큰이 없으면 미인증 상태로 요청을 그대로 통과시킨다
+  // API 프록시 요청은 hook 우회 — SvelteKit dev 환경에서 /api/* 가 라우터를 거치며
+  // hooks 가 다시 트리거되어 event.fetch 호출 시 무한 재귀가 발생할 수 있다.
+  if (event.url.pathname.startsWith('/api/')) {
     event.locals.user = null;
     return resolve(event);
   }
 
-  // 토큰이 있으면 /api/auth/me로 검증
-  const user = await getCurrentUser(event);
+  const token = event.cookies.get('access_token');
+
+  if (!token) {
+    event.locals.user = null;
+    return resolve(event);
+  }
+
+  // 토큰이 있으면 API 서버를 절대 URL 로 직접 호출하여 검증한다.
+  // event.fetch 를 사용하면 SvelteKit 라우터를 거쳐 hooks 가 재진입할 수 있다.
+  const user = await getCurrentUser(token);
 
   if (user) {
     event.locals.user = user;
   } else {
-    // 검증 실패 — 만료되었거나 블랙리스트된 토큰. 쿠키를 삭제하여 재시도를 방지한다.
     event.locals.user = null;
     event.cookies.delete('access_token', { path: '/' });
+    event.cookies.delete('refresh_token', { path: '/' });
   }
 
   return resolve(event);

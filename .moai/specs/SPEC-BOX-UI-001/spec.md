@@ -1,7 +1,7 @@
 ---
 id: SPEC-BOX-UI-001
-version: 0.1.0
-status: Draft
+version: 0.2.0
+status: Implemented
 created: 2026-05-13
 updated: 2026-05-13
 author: imgughyeon
@@ -14,6 +14,7 @@ priority: High
 
 | 날짜 | 버전 | 내용 | 작성자 |
 |---|---|---|---|
+| 2026-05-13 | 0.2.0 | 구현 완료 및 동기화 (TDD, 79개 테스트 통과) | imgughyeon |
 | 2026-05-13 | 0.1.0 | 초안 작성 | imgughyeon |
 
 ---
@@ -185,6 +186,43 @@ apps/web/src/
 - 일시 중단: `document.visibilityState === 'hidden'` 시
 - 재개: `visibilitychange` 이벤트로 `visible` 전환 시 즉시 1회 갱신 후 재개
 - 401 응답: `window.location.href = '/login'` 후 폴링 종료
+
+---
+
+## 구현 노트 (Implementation Notes)
+
+### 구현 완료일
+2026-05-13
+
+### 구현 커밋
+- 3756765: spec — SPEC-BOX-UI-001 초안 작성 (spec.md, plan.md, acceptance.md)
+- eed874d: web — SPEC-BOX-UI-001 Box 관리 UI 구현 (18 신규 + 2 수정 파일, +2,097 / −3 라인)
+
+### 테스트 결과
+79개 테스트 전원 통과 (Bun test, 130 expect calls). svelte-check 0 errors, biome 0 errors, TypeScript strict 0 errors.
+
+### 계획 외 변경
+- **테스트 경로 정정**: plan.md의 `apps/web/__tests__/` → 실제 `apps/web/src/__tests__/` (기존 login/layout 테스트 컨벤션 일치)
+- **boxes.ts API 헬퍼**: INTERNAL_API_URL 대신 의존성 주입(`FetchLike`) 패턴 채택. 서버는 `event.fetch`, 클라이언트 폴링은 `window.fetch`를 같은 함수에 주입. /login form-action 패턴과 일치하며 hooks 재귀 위험 없음.
+- **helper 모듈 추출**: `statusBadge.helpers.ts`, `relativeTime.helpers.ts`를 별도 분리(REFACTOR 단계)하여 순수 함수 단위 테스트 가능. SPEC-BOX-001 vault 패턴과 일관.
+
+### 계획 외 보류
+- **BoxForm.svelte**: 선택적으로 명시되어 있어 생성하지 않음. `boxes/new/+page.svelte`에 직접 인라인.
+- **자체 모달**: 본 SPEC 범위 외, 브라우저 `confirm()` 유지.
+
+### 새 의존성
+없음. 신규 npm 패키지 도입 0건.
+
+### 신규 디렉토리
+- `apps/web/src/lib/components/box/` — Box 도메인 UI 컴포넌트
+- `apps/web/src/routes/(app)/boxes/` — Box 관리 보호 라우트
+- `apps/web/src/__tests__/lib/` — 라이브러리 단위 테스트
+- `apps/web/src/__tests__/routes/boxes/` — Box 페이지 서버 통합 테스트
+
+### 알려진 제약 (후속 SPEC 권고)
+- 폴링 기반 상태 갱신은 백엔드 부하 증가 가능 → SPEC-BOX-002 후보로 SSE 기반 푸시 알림 검토 권고.
+- 삭제 확인 UI는 브라우저 `confirm()`만 제공 → 디자인 시스템 SPEC에서 자체 모달 컴포넌트 도입 권고.
+- `quality.yaml`의 `development_mode: "ddd"` → `hybrid`로 정렬 권고 (plan.md 구현 후 정리 섹션 참조).
 
 ---
 

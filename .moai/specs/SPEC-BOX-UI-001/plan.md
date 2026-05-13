@@ -273,3 +273,32 @@ constitution:
 ```
 
 이는 신규 코드에 TDD, 레거시 코드에 DDD를 자동 적용하는 `hybrid` 모드와 실제 개발 패턴을 일치시킨다. 변경은 별도 PR로 처리하는 것을 권장한다.
+
+---
+
+## 구현 완료 보고 (Implementation Summary)
+
+### 상태
+구현 완료 (2026-05-13)
+
+### 방법론
+TDD (RED-GREEN-REFACTOR), 8개 Task 순차 실행
+
+### 각 Task 상태 (모두 완료)
+- Task 1 — StatusBadge.svelte (+ statusBadge.helpers.ts): GREEN/REFACTOR 완료, 7개 테스트 통과
+- Task 2 — RelativeTime.svelte (+ relativeTime.helpers.ts): GREEN/REFACTOR 완료, 9개 테스트 통과
+- Task 3 — boxes.ts API 헬퍼: GREEN/REFACTOR 완료, FetchLike 의존성 주입 패턴 채택
+- Task 4 — 목록 페이지 + 폴링: GREEN/REFACTOR 완료, visibility-gated 15초 주기 구현
+- Task 5 — 등록 폼 페이지: GREEN/REFACTOR 완료, 4종 에러 매핑 + stripPassword 검증
+- Task 6 — 상세 페이지: GREEN/REFACTOR 완료, delete/refresh 액션 + 404 처리
+- Task 7 — 네비게이션 링크: 완료 (`(app)/+layout.svelte` 수정)
+- Task 8 — 통합 테스트 3종: 완료 (`list-page-server.test.ts`, `new-page-server.test.ts`, `id-page-server.test.ts`)
+
+### 테스트 결과
+79 pass / 0 fail / 130 expect calls (~27ms)
+
+### LSP 게이트
+svelte-check 0 errors, biome 0 errors, TypeScript strict 0 errors → run 단계 PASS
+
+### TRUST 5
+PASS (manager-quality 검증, password/jwt/apiKey 비노출 확인)

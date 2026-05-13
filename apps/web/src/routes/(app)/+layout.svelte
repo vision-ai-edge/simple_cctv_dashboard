@@ -14,7 +14,13 @@ const { data, children }: { data: LayoutData; children: import('svelte').Snippet
 <div class="min-h-screen flex flex-col">
   <header class="border-b border-slate-200 bg-white">
     <div class="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
-      <h1 class="text-lg font-semibold text-slate-900">CCTV Dashboard</h1>
+      <div class="flex items-center gap-6">
+        <h1 class="text-lg font-semibold text-slate-900">CCTV Dashboard</h1>
+        <!-- 박스 관리 네비게이션 링크 (REQ-UI-5) -->
+        <nav class="flex items-center gap-4">
+          <a href="/boxes" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">박스 관리</a>
+        </nav>
+      </div>
       <div class="flex items-center gap-4">
         <span class="text-sm text-slate-600">
           {data.user.username}

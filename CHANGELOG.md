@@ -8,6 +8,21 @@
 
 ## [Unreleased]
 
+### Added — SPEC-BOX-UI-001 (Box 관리 UI)
+
+#### apps/web — Box 관리 UI 컴포넌트 및 라우트
+- `StatusBadge` 컴포넌트: 상태 배지 (active=emerald, inactive=slate, error=rose)
+- `RelativeTime` 컴포넌트: 상대시간 렌더링 (방금 전, n분 전, n시간 전, yyyy-MM-dd HH:mm)
+- `BoxCard` 컴포넌트: 목록 카드
+- `boxes.ts` API 헬퍼: FetchLike 의존성 주입으로 서버/클라이언트 fetch 통일
+- `/(app)/boxes` 목록 페이지: visibility-gated 15초 자동 폴링
+- `/(app)/boxes/new` 등록 폼 페이지: Zod 검증, 4종 에러 매핑 (400/409/502)
+- `/(app)/boxes/[id]` 상세 페이지: delete/refresh 액션, 404 처리
+- `(app)/+layout.svelte`에 "박스 관리" 네비게이션 링크 추가
+- 페이지 서버 통합 테스트 3종: list-page-server.test.ts, new-page-server.test.ts, id-page-server.test.ts
+- 컴포넌트 단위 테스트 2종: relative-time.test.ts, status-badge.test.ts
+- 총 79개 테스트 통과, 130 expect calls, svelte-check 0 errors, biome 0 errors
+
 ### Planned
 
 - SPEC-AUTH-002: 비밀번호 변경 / API Key 관리 UI

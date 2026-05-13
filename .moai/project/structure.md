@@ -145,12 +145,29 @@ simple_cctv_dashboard/
 │       │   │   │   └── +page.server.ts # 로그아웃 액션 (SPEC-AUTH-001)
 │       │   │   └── (app)/
 │       │   │       ├── +layout.server.ts # 보호 라우트 가드 (SPEC-AUTH-001)
-│       │   │       ├── +layout.svelte    # 앱 레이아웃
+│       │   │       ├── +layout.svelte    # 앱 레이아웃 (SPEC-BOX-UI-001에서 "박스 관리" 링크 추가)
 │       │   │       ├── +page.svelte      # 대시보드 (후속 SPEC)
+│       │   │       ├── boxes/
+│       │   │       │   ├── +page.server.ts  # 목록 load (SPEC-BOX-UI-001)
+│       │   │       │   ├── +page.svelte     # 목록 뷰 + 15초 폴링 (SPEC-BOX-UI-001)
+│       │   │       │   ├── new/
+│       │   │       │   │   ├── +page.server.ts  # 등록 action (SPEC-BOX-UI-001)
+│       │   │       │   │   └── +page.svelte     # 등록 폼 (SPEC-BOX-UI-001)
+│       │   │       │   └── [id]/
+│       │   │       │       ├── +page.server.ts  # 상세 load + delete/refresh actions (SPEC-BOX-UI-001)
+│       │   │       │       └── +page.svelte     # 상세 뷰 (SPEC-BOX-UI-001)
 │       │   │       └── [기타 보호 라우트]
 │       │   ├── lib/
 │       │   │   ├── components/
+│       │   │   │   ├── box/
+│       │   │   │   │   ├── StatusBadge.svelte # 상태 배지 (SPEC-BOX-UI-001)
+│       │   │   │   │   ├── BoxCard.svelte     # 목록 카드 (SPEC-BOX-UI-001)
+│       │   │   │   │   ├── RelativeTime.svelte # 상대시간 (SPEC-BOX-UI-001)
+│       │   │   │   │   ├── statusBadge.helpers.ts # 순수 함수 (SPEC-BOX-UI-001)
+│       │   │   │   │   └── relativeTime.helpers.ts # 순수 함수 (SPEC-BOX-UI-001)
 │       │   │   │   └── [UI 컴포넌트 - 후속]
+│       │   │   ├── api/
+│       │   │   │   └── boxes.ts      # BoxSummary 타입 + fetch 헬퍼 (FetchLike 의존성 주입, SPEC-BOX-UI-001)
 │       │   │   ├── server/
 │       │   │   │   └── auth.ts       # getCurrentUser 헬퍼 (SPEC-AUTH-001)
 │       │   │   ├── stores/
@@ -161,7 +178,15 @@ simple_cctv_dashboard/
 │       │   │   └── types/
 │       │   │       └── [타입 정의 - 후속]
 │       │   ├── __tests__/
+│       │   │   ├── lib/
+│       │   │   │   └── components/box/
+│       │   │   │       ├── relative-time.test.ts # RelativeTime 테스트 (SPEC-BOX-UI-001)
+│       │   │   │       └── status-badge.test.ts  # StatusBadge 테스트 (SPEC-BOX-UI-001)
 │       │   │   └── routes/
+│       │   │       ├── boxes/
+│       │   │       │   ├── list-page-server.test.ts  # 목록 페이지 load 테스트 (SPEC-BOX-UI-001)
+│       │   │       │   ├── new-page-server.test.ts   # 등록 페이지 action 테스트 (SPEC-BOX-UI-001)
+│       │   │       │   └── id-page-server.test.ts    # 상세 페이지 load+actions 테스트 (SPEC-BOX-UI-001)
 │       │   │       └── [로그인/보호 라우트 테스트]
 │       │   └── styles/
 │       │       └── app.css           # 전역 스타일 (Tailwind)

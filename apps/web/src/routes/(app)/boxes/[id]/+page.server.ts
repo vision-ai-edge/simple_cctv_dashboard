@@ -143,7 +143,13 @@ export const load: PageServerLoad = async ({ params, fetch: eventFetch, locals }
   }
   if (outcome.type === 'error') {
     // 그 외 에러 — 에러 메시지와 함께 렌더링 (채널 섹션 없이)
-    return { box: null, loadError: outcome.message, channels: [], lastSyncedAt: null, channelError: null };
+    return {
+      box: null,
+      loadError: outcome.message,
+      channels: [],
+      lastSyncedAt: null,
+      channelError: null,
+    };
   }
 
   // 채널 목록 Lazy 동기화 (REQ-CHAN-003) — 오류 격리

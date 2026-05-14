@@ -14,8 +14,8 @@
  */
 
 import { invalidateAll } from '$app/navigation';
-import type { ChannelDto } from '$lib/types/channel';
 import { syncChannels } from '$lib/api/channels';
+import type { ChannelDto } from '$lib/types/channel';
 import ChannelRow from './ChannelRow.svelte';
 
 const {
@@ -58,9 +58,7 @@ async function handleSync() {
 }
 
 // 마지막 동기화 시각 표시 문자열 (derived)
-const lastSyncedText = $derived(
-  lastSynced ? new Date(lastSynced).toLocaleString('ko-KR') : null,
-);
+const lastSyncedText = $derived(lastSynced ? new Date(lastSynced).toLocaleString('ko-KR') : null);
 </script>
 
 <section aria-labelledby="channel-section-title">

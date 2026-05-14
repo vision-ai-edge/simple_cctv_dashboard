@@ -14,12 +14,12 @@
  * REQ-CHAN-008: 스냅샷 blob → object URL
  */
 
-import { untrack } from 'svelte';
-import type { ChannelDto } from '$lib/types/channel';
-import { getCameraStatusBadgeClass, getCameraStatusLabel } from './channelBadge.helpers';
-import RelativeTime from '$lib/components/box/RelativeTime.svelte';
-import ChannelPreview from './ChannelPreview.svelte';
 import { startChannel, stopChannel } from '$lib/api/channels';
+import RelativeTime from '$lib/components/box/RelativeTime.svelte';
+import type { ChannelDto } from '$lib/types/channel';
+import { untrack } from 'svelte';
+import ChannelPreview from './ChannelPreview.svelte';
+import { getCameraStatusBadgeClass, getCameraStatusLabel } from './channelBadge.helpers';
 
 const { channel: channelProp, boxId }: { channel: ChannelDto; boxId: string } = $props();
 

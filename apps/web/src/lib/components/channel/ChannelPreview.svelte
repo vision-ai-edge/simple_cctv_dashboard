@@ -37,7 +37,9 @@ onMount(() => {
   const video = videoEl;
 
   // 로딩 완료 이벤트
-  const onCanPlay = () => { isLoading = false; };
+  const onCanPlay = () => {
+    isLoading = false;
+  };
   video.addEventListener('canplay', onCanPlay);
 
   // Safari: native HLS 지원 여부 확인

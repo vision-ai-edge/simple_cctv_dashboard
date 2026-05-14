@@ -203,9 +203,9 @@ describe('boxStatusPoller — 기본 폴링', () => {
     );
 
     expect(timers.length).toBe(1);
-    expect(timers[0]!.intervalMs).toBe(60_000);
+    expect(timers[0]?.intervalMs).toBe(60_000);
 
-    await timers[0]!.tick(1);
+    await timers[0]?.tick(1);
     expect(healthMock).toHaveBeenCalledTimes(1);
 
     stop();
@@ -226,7 +226,7 @@ describe('boxStatusPoller — 기본 폴링', () => {
       { intervalMs: 60_000 },
     );
 
-    await timers[0]!.tick(1);
+    await timers[0]?.tick(1);
     expect(healthMock).not.toHaveBeenCalled();
 
     stop();
@@ -246,7 +246,7 @@ describe('boxStatusPoller — 기본 폴링', () => {
       { intervalMs: 60_000 },
     );
 
-    await timers[0]!.tick(1);
+    await timers[0]?.tick(1);
     expect(healthMock).not.toHaveBeenCalled();
 
     stop();
@@ -275,7 +275,7 @@ describe('boxStatusPoller — 성공 처리', () => {
       { intervalMs: 60_000 },
     );
 
-    await timers[0]!.tick(1);
+    await timers[0]?.tick(1);
 
     const afterSyncAt = getBoxLastSyncAt(db, 'box-sync');
     expect(afterSyncAt).not.toBeNull();
@@ -324,19 +324,19 @@ describe('boxStatusPoller — 성공 처리', () => {
     );
 
     // 실패 2회
-    await timers[0]!.tick(2);
+    await timers[0]?.tick(2);
     // status 는 아직 active (3회 미달)
     expect(getBoxStatus(db, 'box-flap')).toBe('active');
 
     // 성공 1회 → 카운터 초기화
-    await timers[0]!.tick(1);
+    await timers[0]?.tick(1);
     expect(getBoxStatus(db, 'box-flap')).toBe('active');
     const syncAt = getBoxLastSyncAt(db, 'box-flap');
     expect(syncAt).not.toBeNull();
 
     // 이후 2회 더 실패해도 error 전이 안 됨 (카운터가 0 으로 리셋됐으므로)
     callCount = 1; // 다시 실패 2회 시뮬레이션
-    await timers[0]!.tick(2);
+    await timers[0]?.tick(2);
     expect(getBoxStatus(db, 'box-flap')).toBe('active');
 
     stop();
@@ -363,7 +363,7 @@ describe('boxStatusPoller — 실패 처리', () => {
     );
 
     // 2회 실패 → status 유지
-    await timers[0]!.tick(2);
+    await timers[0]?.tick(2);
     expect(getBoxStatus(db, 'box-fail')).toBe('active');
     expect(healthMock).toHaveBeenCalledTimes(2);
 
@@ -385,11 +385,11 @@ describe('boxStatusPoller — 실패 처리', () => {
     );
 
     // 3회 실패 → error 전이
-    await timers[0]!.tick(3);
+    await timers[0]?.tick(3);
     expect(getBoxStatus(db, 'box-err')).toBe('error');
 
     // 4회째 tick: error 상태이므로 더 이상 health 호출 안 함
-    await timers[0]!.tick(1);
+    await timers[0]?.tick(1);
     expect(healthMock).toHaveBeenCalledTimes(3); // 4회 호출 없음
 
     stop();
@@ -410,7 +410,7 @@ describe('boxStatusPoller — 실패 처리', () => {
       { intervalMs: 60_000 },
     );
 
-    await timers[0]!.tick(2);
+    await timers[0]?.tick(2);
     expect(getBoxStatus(db, 'box-net')).toBe('active');
 
     stop();
@@ -475,12 +475,12 @@ describe('boxStatusPoller — cleanup', () => {
       { intervalMs: 60_000 },
     );
 
-    await timers[0]!.tick(1);
+    await timers[0]?.tick(1);
     expect(healthMock).toHaveBeenCalledTimes(1);
 
     // cleanup 호출
     stop();
-    expect(timers[0]!.cleared).toBe(true);
+    expect(timers[0]?.cleared).toBe(true);
 
     // 싱글톤 해제됐으므로 새 인스턴스 시작 가능
     const warnSpy = mock((..._args: unknown[]) => {});
@@ -541,7 +541,7 @@ describe('boxStatusPoller — 다중 Box', () => {
       { intervalMs: 60_000 },
     );
 
-    await timers[0]!.tick(1);
+    await timers[0]?.tick(1);
 
     expect(callLog.length).toBe(3);
     expect(callLog).toContain('https://box1.test:8443/api');
@@ -571,9 +571,9 @@ describe('boxStatusPoller — 인터벌 파라미터', () => {
       { intervalMs: 1_000 }, // 1초 주기
     );
 
-    expect(timers[0]!.intervalMs).toBe(1_000);
+    expect(timers[0]?.intervalMs).toBe(1_000);
 
-    await timers[0]!.tick(1);
+    await timers[0]?.tick(1);
     expect(healthMock).toHaveBeenCalledTimes(1);
 
     stop();
@@ -588,7 +588,7 @@ describe('boxStatusPoller — 인터벌 파라미터', () => {
 
     const stop = startBoxStatusPoller({ db, vaultKey: TEST_VAULT_KEY, createBoxClient });
 
-    expect(timers[0]!.intervalMs).toBe(60_000);
+    expect(timers[0]?.intervalMs).toBe(60_000);
 
     stop();
     restoreTimers();

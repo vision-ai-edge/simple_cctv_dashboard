@@ -7,8 +7,8 @@
  * 보안: 모든 채널 요청은 자체 도메인(/api/boxes/...) 경유. 자격증명 미포함.
  */
 
-import type { FetchLike } from './boxes';
 import type { ChannelDto, ChannelSyncResult } from '$lib/types/channel';
+import type { FetchLike } from './boxes';
 
 /** 채널 API 에러 타입 */
 export interface ChannelError {

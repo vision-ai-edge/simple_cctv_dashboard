@@ -252,7 +252,7 @@ describe('channelSyncPoller — inactive Box 스킵', () => {
       { intervalMs: 60_000, concurrency: 3 },
     );
 
-    await timers[0]!.tick(1);
+    await timers[0]?.tick(1);
 
     // syncMock 은 직접 주입하지 않으므로 실제 syncChannelsForBox 가 호출되나
     // DB 에 inactive 만 있으므로 아무 것도 처리하지 않는다.
@@ -329,7 +329,7 @@ describe('channelSyncPoller — 진행 중 Box 중복 방지', () => {
     // 2회 tick: lock 이 각 tick 후 해제되므로 모두 시도
     // 실제 syncChannelsForBox 는 DB credential 이 없어 실패하겠지만
     // 에러 격리로 처리됨. syncCallCount 가 아닌 tick 자체가 에러 없이 완료되는지 확인.
-    await expect(timers[0]!.tick(2)).resolves.toBeUndefined();
+    await expect(timers[0]?.tick(2)).resolves.toBeUndefined();
 
     syncCallCount.count; // lint 방지
 
@@ -368,7 +368,7 @@ describe('channelSyncPoller — 개별 실패 격리', () => {
     );
 
     // tick 이 에러를 던지지 않고 완료돼야 한다 (격리 확인)
-    await expect(timers[0]!.tick(1)).resolves.toBeUndefined();
+    await expect(timers[0]?.tick(1)).resolves.toBeUndefined();
 
     // 에러 로그가 발생했을 수 있으나 (credential 없음), tick 은 완료됨
     // isolate 로 처리된 에러 로그가 출력됐는지 확인
@@ -400,11 +400,11 @@ describe('channelSyncPoller — start/stop', () => {
     );
 
     expect(timers.length).toBe(1);
-    expect(timers[0]!.cleared).toBe(false);
+    expect(timers[0]?.cleared).toBe(false);
 
     stop();
 
-    expect(timers[0]!.cleared).toBe(true);
+    expect(timers[0]?.cleared).toBe(true);
 
     // 싱글톤 해제 후 경고 없이 재시작 가능
     const warnSpy = mock((..._args: unknown[]) => {});
@@ -444,7 +444,7 @@ describe('channelSyncPoller — start/stop', () => {
       { intervalMs: 120_000 },
     );
 
-    expect(timers[0]!.intervalMs).toBe(120_000);
+    expect(timers[0]?.intervalMs).toBe(120_000);
 
     stop();
     restoreTimers();
@@ -465,7 +465,7 @@ describe('channelSyncPoller — start/stop', () => {
       }),
     });
 
-    expect(timers[0]!.intervalMs).toBe(300_000);
+    expect(timers[0]?.intervalMs).toBe(300_000);
 
     stop();
 
@@ -558,7 +558,7 @@ describe('channelSyncPoller — 동시성 배치 처리', () => {
     );
 
     // tick 이 에러 없이 완료되어야 함 (3개 Box 모두 격리 처리)
-    await expect(timers[0]!.tick(1)).resolves.toBeUndefined();
+    await expect(timers[0]?.tick(1)).resolves.toBeUndefined();
 
     processingOrder; // lint 방지
     concurrentCount; // lint 방지

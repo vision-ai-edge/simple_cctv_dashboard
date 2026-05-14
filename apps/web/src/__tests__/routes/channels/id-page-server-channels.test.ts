@@ -63,7 +63,10 @@ describe('getLatestSyncedAt', () => {
   it('여러 채널 중 가장 최근 lastSyncedAt 반환', () => {
     const old = Date.now() - 60_000;
     const recent = Date.now() - 10_000;
-    const channels = [makeChannel({ lastSyncedAt: old }), makeChannel({ id: 'cam-2', channelId: 'ch-002', lastSyncedAt: recent })];
+    const channels = [
+      makeChannel({ lastSyncedAt: old }),
+      makeChannel({ id: 'cam-2', channelId: 'ch-002', lastSyncedAt: recent }),
+    ];
     expect(getLatestSyncedAt(channels)).toBe(recent);
   });
 

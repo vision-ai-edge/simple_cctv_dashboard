@@ -8,9 +8,9 @@
  * 인증 가드: (app)/+layout.server.ts 에서 처리하므로 locals.user 존재 보장.
  */
 
-import type { PageServerLoad } from './$types';
 import { fetchCameras } from '$lib/api/cameras';
 import type { CameraWithBox } from '$lib/types/dashboard';
+import type { PageServerLoad } from './$types';
 
 /**
  * fetchCameras 결과를 기반으로 load 반환값을 결정하는 순수 함수.

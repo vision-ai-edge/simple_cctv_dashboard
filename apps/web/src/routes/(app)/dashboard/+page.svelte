@@ -8,10 +8,10 @@
  * - "멀티뷰 보기" 링크 → /dashboard/grid (REQ-DASH-011).
  */
 
-import type { PageData } from './$types';
+import { partitionCameras } from '$lib/api/cameras';
 import CameraMap from '$lib/components/dashboard/CameraMap.svelte';
 import NoCoordSidebar from '$lib/components/dashboard/NoCoordSidebar.svelte';
-import { partitionCameras } from '$lib/api/cameras';
+import type { PageData } from './$types';
 
 // ---------------------------------------------------------------------------
 // Props

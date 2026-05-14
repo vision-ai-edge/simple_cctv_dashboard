@@ -13,17 +13,15 @@
  */
 
 import { describe, expect, it } from 'bun:test';
-import { fetchCameras, partitionCameras, getMarkerColor } from '../../../lib/api/cameras';
-import type { CameraWithBox } from '../../../lib/types/dashboard';
 import type { FetchLike } from '../../../lib/api/boxes';
+import { fetchCameras, getMarkerColor, partitionCameras } from '../../../lib/api/cameras';
+import type { CameraWithBox } from '../../../lib/types/dashboard';
 
 // ---------------------------------------------------------------------------
 // 테스트 픽스처
 // ---------------------------------------------------------------------------
 
-const makeCamera = (
-  overrides: Partial<CameraWithBox> = {},
-): CameraWithBox => ({
+const makeCamera = (overrides: Partial<CameraWithBox> = {}): CameraWithBox => ({
   id: 'cam-001',
   channelId: 'ch-001',
   name: '카메라 A',
@@ -48,7 +46,7 @@ describe('fetchCameras', () => {
       ({
         ok: true,
         json: async () => ({ cameras }),
-      } as Response)) as unknown as FetchLike;
+      }) as Response) as unknown as FetchLike;
 
     const result = await fetchCameras(mockFetch);
     expect(result.ok).toBe(true);
@@ -63,7 +61,7 @@ describe('fetchCameras', () => {
       ({
         ok: true,
         json: async () => ({ cameras: [] }),
-      } as Response)) as unknown as FetchLike;
+      }) as Response) as unknown as FetchLike;
 
     const result = await fetchCameras(mockFetch);
     expect(result.ok).toBe(true);
@@ -78,7 +76,7 @@ describe('fetchCameras', () => {
         ok: false,
         status: 401,
         json: async () => ({ message: 'Unauthorized' }),
-      } as Response)) as unknown as FetchLike;
+      }) as Response) as unknown as FetchLike;
 
     const result = await fetchCameras(mockFetch);
     expect(result.ok).toBe(false);
@@ -111,7 +109,7 @@ describe('fetchCameras', () => {
       ({
         ok: true,
         json: async () => ({ cameras }),
-      } as Response)) as unknown as FetchLike;
+      }) as Response) as unknown as FetchLike;
 
     const result = await fetchCameras(mockFetch);
     expect(result.ok).toBe(true);

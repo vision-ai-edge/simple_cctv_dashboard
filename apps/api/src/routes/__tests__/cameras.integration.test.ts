@@ -127,7 +127,18 @@ function insertCamera(
       `INSERT INTO cameras (id, box_id, channel_id, name, status, latitude, longitude, last_synced_at, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(id, boxId, channelId, name, status, latitude, longitude, lastSyncedAt, Date.now(), Date.now());
+    .run(
+      id,
+      boxId,
+      channelId,
+      name,
+      status,
+      latitude,
+      longitude,
+      lastSyncedAt,
+      Date.now(),
+      Date.now(),
+    );
 }
 
 // ---------------------------------------------------------------------------

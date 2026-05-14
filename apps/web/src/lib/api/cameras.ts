@@ -8,8 +8,8 @@
  * 보안 원칙: 응답에 Box 자격증명 미포함 (REQ-DASH-013 준수 — 서버 측에서 보장).
  */
 
-import type { FetchLike } from './boxes';
 import type { CameraWithBox } from '$lib/types/dashboard';
+import type { FetchLike } from './boxes';
 
 /** 카메라 API 에러 */
 export interface CameraApiError {

@@ -14,6 +14,7 @@ import { loadConfig } from './config';
 import { initDb } from './db/client';
 import { createLogger } from './logger';
 import { startBoxStatusPoller } from './workers/boxStatusPoller';
+import { startChannelSyncPoller } from './workers/channelSyncPoller';
 
 const config = loadConfig();
 
@@ -35,7 +36,7 @@ const app = createApp({
 });
 
 // SPEC-BOX-001 REQ-MOD-4: Box 상태 폴링 워커 시작 (서버 listen 직전)
-const stopPoller = startBoxStatusPoller(
+const stopBoxStatusPoller = startBoxStatusPoller(
   {
     db,
     vaultKey: config.BOX_VAULT_KEY,
@@ -43,6 +44,13 @@ const stopPoller = startBoxStatusPoller(
   },
   { intervalMs: config.BOX_STATUS_POLL_INTERVAL_MS },
 );
+
+// SPEC-BOX-CHANNELS-001 REQ-CHAN-002: 채널 동기화 폴링 워커 시작
+const stopChannelSyncPoller = startChannelSyncPoller({
+  db,
+  vaultKey: config.BOX_VAULT_KEY,
+  createBoxClient: (baseUrl, token) => createBoxClient({ baseUrl, jwt: token }),
+});
 
 logger.info('CCTV API 서버 시작', { port: config.API_PORT, mode: config.NODE_ENV });
 
@@ -54,7 +62,8 @@ const server = Bun.serve({
 // 종료 시그널 처리 — 개발 환경 hot reload 호환성
 function shutdown(signal: string) {
   logger.info('shutdown signal 수신', { signal });
-  stopPoller();
+  stopBoxStatusPoller();
+  stopChannelSyncPoller();
   server.stop();
   process.exit(0);
 }

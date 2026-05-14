@@ -58,6 +58,11 @@ export type BoxServiceDeps = {
   vaultKey: string;
   /** BoxClient 팩토리 (테스트 mock 용이) */
   createBoxClient: (baseUrl: string, token?: string) => BoxClient;
+  /**
+   * SPEC-BOX-CHANNELS-001 REQ-CHAN-001: Box 등록 완료 후 fire-and-forget 훅.
+   * 채널 동기화를 비동기로 실행한다. 오류 발생 시 응답에 영향 없음.
+   */
+  onBoxRegistered?: (boxId: string) => Promise<void>;
 };
 
 // ---------------------------------------------------------------------------
@@ -120,13 +125,15 @@ type BoxSummaryRow = {
   createdAt: number;
 };
 
-/** 자격증명 포함 raw 행 타입 (내부 전용) */
-type BoxCredentialRow = {
+/** 자격증명 포함 raw 행 타입 (내부 + channelSyncService 공유) */
+export type BoxCredentialRow = {
   id: string;
   baseUrl: string;
   username: string;
   passwordEnc: Uint8Array;
   jwtCachedEnc: Uint8Array | null;
+  /** SPEC-BOX-CHANNELS-001: API Key 암호화 blob (채널 동기화용) */
+  apiKeyCachedEnc?: Uint8Array | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -169,13 +176,15 @@ function querySummaryRow(db: Db, id: string): BoxSummaryRow {
 
 /**
  * ID 로 자격증명 포함 행을 조회한다.
+ * channelSyncService 에서도 사용하므로 export 처리.
  * @throws BoxNotFoundError — 미발견 시
  */
-function queryCredentialRow(db: Db, id: string): BoxCredentialRow {
+export function queryCredentialRow(db: Db, id: string): BoxCredentialRow {
   const row = db.$client
     .query(
       `SELECT id, base_url as baseUrl, username,
-              password_enc as passwordEnc, jwt_cached_enc as jwtCachedEnc
+              password_enc as passwordEnc, jwt_cached_enc as jwtCachedEnc,
+              api_key_cached_enc as apiKeyCachedEnc
        FROM boxes WHERE id = ?`,
     )
     .get(id) as BoxCredentialRow | null;
@@ -260,7 +269,20 @@ export async function registerBox(
       .run(apiKeyCachedEnc, Date.now(), id);
   }
 
-  return toBoxSummary(querySummaryRow(db, id));
+  const summary = toBoxSummary(querySummaryRow(db, id));
+
+  // SPEC-BOX-CHANNELS-001 REQ-CHAN-001: 등록 직후 채널 동기화 fire-and-forget
+  // await 없이 호출하여 응답에 영향을 주지 않음. Promise rejection은 로그로만 처리.
+  if (deps.onBoxRegistered) {
+    deps.onBoxRegistered(id).catch((err: unknown) => {
+      console.error('[boxService] 채널 동기화 fire-and-forget 오류:', {
+        boxId: id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+  }
+
+  return summary;
 }
 
 /**

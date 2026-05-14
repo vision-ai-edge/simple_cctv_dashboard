@@ -1,4 +1,5 @@
 <script lang="ts">
+// TAG: BOX-CHANNELS-001
 /**
  * /(app)/boxes/[id] 상세 페이지.
  *
@@ -10,11 +11,16 @@
  * 두 폼 액션:
  * - ?/refresh: 토큰 수동 갱신 → 인라인 알림
  * - ?/delete: 확인 다이얼로그 후 삭제 → 목록 페이지 리다이렉트
+ *
+ * 채널 섹션 (SPEC-BOX-CHANNELS-001, REQ-CHAN-005):
+ * - ChannelList 컴포넌트로 채널 목록 표시
+ * - Lazy 동기화는 +page.server.ts에서 처리
  */
 
 import { enhance } from '$app/forms';
 import RelativeTime from '$lib/components/box/RelativeTime.svelte';
 import StatusBadge from '$lib/components/box/StatusBadge.svelte';
+import ChannelList from '$lib/components/channel/ChannelList.svelte';
 import type { ActionData, PageData } from './$types';
 
 const { data, form }: { data: PageData; form: ActionData } = $props();
@@ -140,6 +146,24 @@ const { data, form }: { data: PageData; form: ActionData } = $props();
           </button>
         </form>
       </div>
+    </div>
+
+    <!-- 채널 섹션 (SPEC-BOX-CHANNELS-001, REQ-CHAN-005) -->
+    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <!-- 채널 에러 표시 (오류 격리 — Box 표시는 유지) -->
+      {#if data.channelError}
+        <div
+          class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700"
+          role="alert"
+        >
+          채널 목록을 불러오는 중 오류가 발생했습니다: {data.channelError}
+        </div>
+      {/if}
+      <ChannelList
+        channels={data.channels}
+        boxId={data.box.id}
+        lastSynced={data.lastSyncedAt}
+      />
     </div>
   {/if}
 </div>

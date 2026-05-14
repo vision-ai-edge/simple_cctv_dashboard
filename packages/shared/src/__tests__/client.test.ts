@@ -329,6 +329,28 @@ describe('channels CRUD', () => {
     expect(capturedUrl).toBe('http://box.local/api/channels?status=RUNNING');
   });
 
+  test('list 는 EdgeAI Box envelope 응답을 array 로 unwrap 한다', async () => {
+    // 실제 박스 (OpenAPI v1.3.6) 응답 모양:
+    //   { success: true, timestamp: 0, summary: {...}, channels: [...] }
+    restoreFetch = installFetchMock(() => ({
+      body: {
+        success: true,
+        timestamp: 1778782560000,
+        summary: { total: 2, running: 1 },
+        channels: [
+          { id: 'cam-a', name: 'Front Gate', status: 'RUNNING' },
+          { id: 'cam-b', name: 'Lobby', status: 'STOPPED' },
+        ],
+      },
+    }));
+    const client = createBoxClient({ baseUrl: 'http://box.local/api' });
+    const list = await client.channels.list();
+    expect(Array.isArray(list)).toBe(true);
+    expect(list).toHaveLength(2);
+    expect(list[0]?.id).toBe('cam-a');
+    expect(list[1]?.name).toBe('Lobby');
+  });
+
   test('get 은 path 의 채널 ID 를 인코딩한다', async () => {
     let capturedUrl = '';
     restoreFetch = installFetchMock((url) => {

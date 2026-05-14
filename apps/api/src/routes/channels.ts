@@ -294,11 +294,13 @@ export function createChannelRoutes(opts: CreateChannelRoutesOptions): Hono {
     try {
       const { baseUrl, jwt, apiKey } = await resolveClientForBox(boxId, deps);
 
-      // 스냅샷 URL 구성 (자격증명은 서버 측에서만 사용)
-      const snapshotUrl = new URL(`/channels/${encodeURIComponent(channelId)}/snapshot`, baseUrl);
-      if (snapshotType) {
-        snapshotUrl.searchParams.set('type', snapshotType);
-      }
+      // 스냅샷 URL 구성 (자격증명은 서버 측에서만 사용).
+      // 박스 OpenAPI v1.3.6 servers: <host>/api — 모든 path 는 그 base 에 *덧붙여*진다.
+      // `new URL('/channels/...', baseUrl)` 는 absolute path 가 base 의 `/api` 를 제거해 404 유발.
+      // string 결합으로 prefix 를 유지한다 (boxClient.#request 와 동일한 패턴).
+      // 박스 ?type=original|processed (기본 processed). FE 의 preview/fullsize 는 UI 용어이므로 미전달.
+      const snapshotUrl = new URL(`${baseUrl}/channels/${encodeURIComponent(channelId)}/snapshot`);
+      void snapshotType; // 현재 SPEC 범위에서는 박스에 미전달 (FE 호환 입력만 유지)
 
       const headers: Record<string, string> = {
         Accept: 'image/*',
@@ -323,6 +325,14 @@ export function createChannelRoutes(opts: CreateChannelRoutesOptions): Hono {
       }
 
       if (!boxResponse.ok) {
+        // 관측성: 박스가 무엇으로 거부했는지 콘솔에 노출 (자격증명은 헤더만 사용했으므로 body 안전).
+        const errBody = await boxResponse.text().catch(() => '');
+        console.warn(`[channels] snapshot 프록시 실패`, {
+          boxId,
+          channelId,
+          upstreamStatus: boxResponse.status,
+          upstreamBody: errBody.slice(0, 300),
+        });
         return c.json(errorEnvelope('스냅샷 취득에 실패했습니다'), 502);
       }
 
@@ -361,8 +371,10 @@ export function createChannelRoutes(opts: CreateChannelRoutesOptions): Hono {
     try {
       const { baseUrl, jwt, apiKey } = await resolveClientForBox(boxId, deps);
 
-      // Box HLS URL 구성 (자격증명은 서버측에서만 사용)
-      const playlistUrl = new URL(`/hls/${encodeURIComponent(channelId)}/playlist.m3u8`, baseUrl);
+      // Box HLS URL 구성 (자격증명은 서버측에서만 사용).
+      // OpenAPI servers base = <host>/api → HLS 도 /api/hls/{id}/playlist.m3u8.
+      // (snapshot 과 동일하게 absolute path + base 함정 회피)
+      const playlistUrl = new URL(`${baseUrl}/hls/${encodeURIComponent(channelId)}/playlist.m3u8`);
       if (jwt) {
         playlistUrl.searchParams.set('token', jwt);
       } else if (apiKey) {
@@ -382,6 +394,15 @@ export function createChannelRoutes(opts: CreateChannelRoutesOptions): Hono {
       }
 
       if (!boxResponse.ok) {
+        // 관측성: 박스 upstream 상태/메시지 노출 (token/apikey 는 URL 쿼리스트링으로 갔으므로
+        // upstream body 자체에는 자격증명이 포함되지 않는다).
+        const errBody = await boxResponse.text().catch(() => '');
+        console.warn(`[channels] HLS playlist 프록시 실패`, {
+          boxId,
+          channelId,
+          upstreamStatus: boxResponse.status,
+          upstreamBody: errBody.slice(0, 300),
+        });
         return c.json(errorEnvelope('HLS 플레이리스트 취득에 실패했습니다'), 502);
       }
 
@@ -423,10 +444,10 @@ export function createChannelRoutes(opts: CreateChannelRoutesOptions): Hono {
     try {
       const { baseUrl, jwt, apiKey } = await resolveClientForBox(boxId, deps);
 
-      // 세그먼트 URL 구성 (자격증명 서버측 주입)
+      // 세그먼트 URL 구성 (자격증명 서버측 주입).
+      // OpenAPI servers base = <host>/api → 세그먼트도 /api/hls/{id}/{seg}.
       const segmentUrl = new URL(
-        `/hls/${encodeURIComponent(channelId)}/${encodeURIComponent(name)}`,
-        baseUrl,
+        `${baseUrl}/hls/${encodeURIComponent(channelId)}/${encodeURIComponent(name)}`,
       );
       if (jwt) {
         segmentUrl.searchParams.set('token', jwt);

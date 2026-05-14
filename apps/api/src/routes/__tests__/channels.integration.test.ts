@@ -438,6 +438,33 @@ describe('GET /:id/channels/:channelId/snapshot', () => {
     expect(res.status).toBe(404);
   });
 
+  test('upstream URL 은 baseUrl 의 /api prefix 를 보존한다 (회귀)', async () => {
+    // 회귀 방지: `new URL('/channels/...', baseUrl)` 는 absolute path 가
+    // baseUrl 의 /api 를 덮어써 박스가 404 를 반환했음. 현재 코드는 string 결합으로
+    // /api/channels/... 경로를 유지해야 한다.
+    insertBox(db, 'box-001', 'https://box.test:8443/api');
+    let capturedUrl = '';
+    const mockFetch = mock(async (url: string | URL) => {
+      capturedUrl = typeof url === 'string' ? url : url.toString();
+      return new Response(new Uint8Array([0xff, 0xd8]), {
+        status: 200,
+        headers: { 'Content-Type': 'image/jpeg' },
+      });
+    });
+    // biome-ignore lint/suspicious/noExplicitAny: fetch mock 주입
+    (globalThis as any).fetch = mockFetch;
+
+    const { app } = buildApp(db);
+    await createTestUser(db, { username: 'u13b', password: 'pass123' });
+    const { cookieHeader } = await loginAs(app, { username: 'u13b', password: 'pass123' });
+
+    await app.request('/api/boxes/box-001/channels/ch-1/snapshot', {
+      headers: { Cookie: cookieHeader },
+    });
+    expect(capturedUrl).toContain('/api/channels/ch-1/snapshot');
+    expect(capturedUrl).toBe('https://box.test:8443/api/channels/ch-1/snapshot');
+  });
+
   test('Box API 오류 → 502', async () => {
     insertBox(db);
     const mockFetch = mock(async () => {
@@ -477,6 +504,31 @@ https://box.test:8443/hls/ch-1/seg-001.ts?apikey=SECRET_API_KEY
 #EXTINF:4.0,
 https://box.test:8443/hls/ch-1/seg-002.ts?apikey=SECRET_API_KEY
 #EXT-X-ENDLIST`;
+
+  test('HLS upstream URL 은 baseUrl 의 /api prefix 를 보존한다 (회귀)', async () => {
+    // 회귀 방지: HLS playlist 도 OpenAPI 상 /api/hls/{id}/playlist.m3u8 에 위치.
+    // 기존 `new URL('/hls/...', baseUrl)` 버그로 /api 가 제거되었던 문제 차단.
+    insertBox(db, 'box-001', 'https://box.test:8443/api');
+    let capturedUrl = '';
+    const mockFetch = mock(async (url: string | URL) => {
+      capturedUrl = typeof url === 'string' ? url : url.toString();
+      return new Response('#EXTM3U\n', {
+        status: 200,
+        headers: { 'Content-Type': 'application/vnd.apple.mpegurl' },
+      });
+    });
+    // biome-ignore lint/suspicious/noExplicitAny: fetch mock 주입
+    (globalThis as any).fetch = mockFetch;
+
+    const { app } = buildApp(db);
+    await createTestUser(db, { username: 'u15b', password: 'pass123' });
+    const { cookieHeader } = await loginAs(app, { username: 'u15b', password: 'pass123' });
+
+    await app.request('/api/boxes/box-001/channels/ch-1/hls/playlist.m3u8', {
+      headers: { Cookie: cookieHeader },
+    });
+    expect(capturedUrl).toContain('/api/hls/ch-1/playlist.m3u8');
+  });
 
   test('m3u8 세그먼트 URL 재작성 — apikey 없음', async () => {
     insertBox(db);

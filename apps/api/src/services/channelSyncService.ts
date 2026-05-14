@@ -205,6 +205,14 @@ export async function syncChannelsForBox(boxId: string, deps: BoxServiceDeps): P
     );
     const sanitizedMessage = sanitizeErrorMessage(rawMessage, sensitiveStrings);
 
+    // 관측성: cameras row 가 없을 때도 진단 가능하도록 콘솔로 노출.
+    // sanitize 된 메시지를 찍는다 — 자격증명 원문 유출 방지.
+    console.warn(`[channelSync] Box ${boxId} 채널 동기화 실패`, {
+      error: sanitizedMessage,
+      hasJwt: typeof jwt === 'string',
+      hasApiKey: typeof apiKey === 'string',
+    });
+
     // 모든 카메라에 sync_error 기록 (last_synced_at 유지)
     db.$client
       .prepare('UPDATE cameras SET sync_error = ?, updated_at = ? WHERE box_id = ?')
@@ -301,6 +309,10 @@ export async function syncChannelsForBox(boxId: string, deps: BoxServiceDeps): P
   } catch (err) {
     const rawMessage = err instanceof Error ? err.message : String(err);
     const sanitizedMessage = sanitizeErrorMessage(rawMessage, [jwt ?? '', apiKey ?? '']);
+
+    console.warn(`[channelSync] Box ${boxId} 채널 Upsert 실패`, {
+      error: sanitizedMessage,
+    });
 
     db.$client
       .prepare('UPDATE cameras SET sync_error = ?, updated_at = ? WHERE box_id = ?')

@@ -124,7 +124,19 @@ export const ChannelStatusResponseSchema = z
   })
   .passthrough();
 
-export const ChannelListResponseSchema = z.array(ChannelResponseSchema);
+// OpenAPI v1.3.6: `/channels` GET → `{ success, timestamp, summary, channels: [...] }`.
+// 호출자(BoxClient.channels.list / channelSyncService)는 array 형태로 다루도록 unwrap.
+// array 로 직접 응답하는 변형/테스트 mock 도 그대로 통과시킨다.
+// TODO(box-channels): /models, /audio/* 등 다른 list 엔드포인트도 동일 envelope —
+// SPEC-BOX-CHANNELS-001 후속에서 일괄 정리.
+export const ChannelListResponseSchema = z.preprocess((val) => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'object' && val !== null) {
+    const obj = val as Record<string, unknown>;
+    if (Array.isArray(obj.channels)) return obj.channels;
+  }
+  return val;
+}, z.array(ChannelResponseSchema));
 
 export const ChannelCreateRequestSchema = z
   .object({

@@ -294,11 +294,12 @@ export function createChannelRoutes(opts: CreateChannelRoutesOptions): Hono {
     try {
       const { baseUrl, jwt, apiKey } = await resolveClientForBox(boxId, deps);
 
-      // 스냅샷 URL 구성 (자격증명은 서버 측에서만 사용)
+      // 스냅샷 URL 구성 (자격증명은 서버 측에서만 사용).
+      // 박스 OpenAPI v1.3.6: ?type=original|processed (기본 processed).
+      // FE 의 type=preview/fullsize 는 UI 의도이며 박스 파라미터로 호환되지 않으므로 전달하지 않는다 —
+      // 박스 기본값(processed: AI overlay 적용된 현재 프레임) 사용.
       const snapshotUrl = new URL(`/channels/${encodeURIComponent(channelId)}/snapshot`, baseUrl);
-      if (snapshotType) {
-        snapshotUrl.searchParams.set('type', snapshotType);
-      }
+      void snapshotType; // 현재 SPEC 범위에서는 박스에 미전달 (FE 호환 입력만 유지)
 
       const headers: Record<string, string> = {
         Accept: 'image/*',
@@ -323,6 +324,14 @@ export function createChannelRoutes(opts: CreateChannelRoutesOptions): Hono {
       }
 
       if (!boxResponse.ok) {
+        // 관측성: 박스가 무엇으로 거부했는지 콘솔에 노출 (자격증명은 헤더만 사용했으므로 body 안전).
+        const errBody = await boxResponse.text().catch(() => '');
+        console.warn(`[channels] snapshot 프록시 실패`, {
+          boxId,
+          channelId,
+          upstreamStatus: boxResponse.status,
+          upstreamBody: errBody.slice(0, 300),
+        });
         return c.json(errorEnvelope('스냅샷 취득에 실패했습니다'), 502);
       }
 
@@ -382,6 +391,15 @@ export function createChannelRoutes(opts: CreateChannelRoutesOptions): Hono {
       }
 
       if (!boxResponse.ok) {
+        // 관측성: 박스 upstream 상태/메시지 노출 (token/apikey 는 URL 쿼리스트링으로 갔으므로
+        // upstream body 자체에는 자격증명이 포함되지 않는다).
+        const errBody = await boxResponse.text().catch(() => '');
+        console.warn(`[channels] HLS playlist 프록시 실패`, {
+          boxId,
+          channelId,
+          upstreamStatus: boxResponse.status,
+          upstreamBody: errBody.slice(0, 300),
+        });
         return c.json(errorEnvelope('HLS 플레이리스트 취득에 실패했습니다'), 502);
       }
 

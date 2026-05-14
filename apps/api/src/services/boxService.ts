@@ -40,11 +40,17 @@ export type RegisterBoxInput = {
 export type BoxSummary = {
   id: string;
   name: string;
+  host: string;
+  port: number;
   baseUrl: string;
   username: string;
   status: 'active' | 'inactive' | 'error';
-  lastSyncAt: Date | null;
-  createdAt: Date;
+  /** Unix epoch ms — JSON 직렬화 호환을 위해 number 로 통일 */
+  lastSyncAt: number | null;
+  /** Unix epoch ms */
+  createdAt: number;
+  /** Unix epoch ms */
+  updatedAt: number;
 };
 
 /**
@@ -110,11 +116,11 @@ export class BoxNotFoundError extends Error {
 /** SELECT 에서 사용할 공개 컬럼 목록 (자격증명 제외) */
 const BOX_SUMMARY_SQL = `
   SELECT id, name, base_url as baseUrl, username, status,
-         last_sync_at as lastSyncAt, created_at as createdAt
+         last_sync_at as lastSyncAt, created_at as createdAt, updated_at as updatedAt
   FROM boxes
 `.trim();
 
-/** 공개 컬럼 raw 행 타입 */
+/** 공개 컬럼 raw 행 타입 (DB 스키마에는 host/port 컬럼이 없으며 baseUrl 로부터 derive 한다) */
 type BoxSummaryRow = {
   id: string;
   name: string;
@@ -123,7 +129,26 @@ type BoxSummaryRow = {
   status: 'active' | 'inactive' | 'error';
   lastSyncAt: number | null;
   createdAt: number;
+  updatedAt: number;
 };
+
+/**
+ * baseUrl 에서 host 와 port 를 추출한다.
+ * 형식: `https://{host}:{port}/api`
+ * URL 파싱 실패 시 빈 host / 0 port 를 반환한다 (방어적).
+ */
+function _parseHostPort(baseUrl: string): { host: string; port: number } {
+  try {
+    const url = new URL(baseUrl);
+    const defaultPort = url.protocol === 'https:' ? 443 : 80;
+    return {
+      host: url.hostname,
+      port: url.port ? Number.parseInt(url.port, 10) : defaultPort,
+    };
+  } catch {
+    return { host: '', port: 0 };
+  }
+}
 
 /** 자격증명 포함 raw 행 타입 (내부 + channelSyncService 공유) */
 export type BoxCredentialRow = {
@@ -161,14 +186,18 @@ function buildBaseUrl(host: string, port: number): string {
  * epoch ms (INTEGER) 를 Date 로 변환하며, 자격증명 컬럼은 포함하지 않는다.
  */
 function toBoxSummary(row: BoxSummaryRow): BoxSummary {
+  const { host, port } = _parseHostPort(row.baseUrl);
   return {
     id: row.id,
     name: row.name,
+    host,
+    port,
     baseUrl: row.baseUrl,
     username: row.username,
     status: row.status,
-    lastSyncAt: row.lastSyncAt !== null ? new Date(row.lastSyncAt) : null,
-    createdAt: new Date(row.createdAt),
+    lastSyncAt: row.lastSyncAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 

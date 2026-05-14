@@ -6,7 +6,7 @@
  * 실패 시 password 필드를 비워서 반환 (REQ-UI-2 [Unwanted]).
  */
 
-import { enhance } from '$app/forms';
+import { applyAction, enhance } from '$app/forms';
 import type { ActionData } from './$types';
 
 const { form }: { form: ActionData } = $props();
@@ -45,9 +45,11 @@ let submitting = $state(false);
       method="POST"
       use:enhance={() => {
         submitting = true;
-        return async ({ update }) => {
+        return async ({ result }) => {
           submitting = false;
-          await update();
+          // applyAction 은 redirect/success/failure/error 모두 기본 동작으로 처리.
+          // 직전엔 update() 만 호출하여 303 redirect 가 무시되던 문제를 해소한다.
+          await applyAction(result);
         };
       }}
       class="space-y-4"

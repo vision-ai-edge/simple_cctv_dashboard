@@ -87,8 +87,11 @@ let submitting = $state(false);
           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 font-mono placeholder-slate-400
                  focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20
                  disabled:cursor-not-allowed disabled:bg-slate-50"
-          placeholder="예: 192.168.1.10"
+          placeholder="예: 192.168.1.10 또는 box.example.com"
         />
+        <p class="mt-1 text-xs text-slate-500">
+          도메인 또는 IP만 입력하세요. <code>https://</code> 등 스키마와 경로는 자동으로 제거됩니다.
+        </p>
       </div>
 
       <!-- 포트 -->

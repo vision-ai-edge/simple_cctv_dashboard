@@ -143,9 +143,17 @@ export type BoxCredentialRow = {
 /**
  * host + port 로부터 baseUrl 을 생성한다.
  * 형식: `https://{host}:{port}/api`
+ *
+ * 방어적: 사용자가 host 필드에 스키마(https://, http://)나 경로(/api 등)를
+ * 포함하더라도 baseUrl 이 이중 스키마(`https://https://...`)가 되지 않도록 정규화한다.
  */
 function buildBaseUrl(host: string, port: number): string {
-  return `https://${host}:${port}/api`;
+  // 스키마 제거 + 후행 슬래시/경로 제거 + 양끝 공백 제거
+  const cleanHost = host
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/.*$/, '');
+  return `https://${cleanHost}:${port}/api`;
 }
 
 /**

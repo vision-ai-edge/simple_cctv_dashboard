@@ -5,11 +5,7 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import {
-  assertBoxVaultKey,
-  decryptWithVault,
-  encryptWithVault,
-} from '../vault';
+import { assertBoxVaultKey, decryptWithVault, encryptWithVault } from '../vault';
 
 // 테스트용 키 (64자 hex = 32바이트)
 const TEST_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -44,7 +40,7 @@ describe('assertBoxVaultKey', () => {
 
   test('비hex 문자(g, h 등) 포함 64자는 에러를 던져야 한다', () => {
     // 마지막 문자를 'g'로 교체 → 비hex
-    const invalidHex = '0'.repeat(63) + 'g';
+    const invalidHex = `${'0'.repeat(63)}g`;
     expect(() => assertBoxVaultKey(invalidHex)).toThrow();
   });
 

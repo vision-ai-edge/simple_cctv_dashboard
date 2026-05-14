@@ -17,6 +17,7 @@
 
 import type { BoxStatus, Db } from '@cctv/db';
 import type { BoxClient } from '@cctv/shared';
+import { decryptWithVault } from '@cctv/shared/crypto/vault';
 
 // ---------------------------------------------------------------------------
 // 공개 타입
@@ -44,10 +45,11 @@ export type PollerOptions = {
 // 내부 타입
 // ---------------------------------------------------------------------------
 
-/** DB 에서 조회하는 active Box 행 */
+/** DB 에서 조회하는 active Box 행 (자격증명 포함 — health 호출에 JWT 필요) */
 type ActiveBoxRow = {
   id: string;
   baseUrl: string;
+  jwtCachedEnc: Uint8Array | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -74,7 +76,10 @@ let activeInstance: { stop: () => void } | null = null;
  */
 function listActiveBoxes(db: Db): ActiveBoxRow[] {
   return db.$client
-    .query(`SELECT id, base_url as baseUrl FROM boxes WHERE status = 'active'`)
+    .query(
+      `SELECT id, base_url as baseUrl, jwt_cached_enc as jwtCachedEnc
+       FROM boxes WHERE status = 'active'`,
+    )
     .all() as ActiveBoxRow[];
 }
 
@@ -138,7 +143,16 @@ export function startBoxStatusPoller(deps: PollerDeps, options: PollerOptions = 
     const activeBoxes = listActiveBoxes(deps.db);
 
     for (const box of activeBoxes) {
-      const client = deps.createBoxClient(box.baseUrl);
+      // JWT 복호화: 캐시된 토큰이 있으면 헤더로 주입, 없으면 anonymous (health 가 unauth 인 경우 동작)
+      let jwt: string | undefined;
+      if (box.jwtCachedEnc) {
+        try {
+          jwt = await decryptWithVault(box.jwtCachedEnc, deps.vaultKey);
+        } catch {
+          jwt = undefined;
+        }
+      }
+      const client = deps.createBoxClient(box.baseUrl, jwt);
       try {
         await client.system.health();
         // 성공: 카운터 초기화, last_sync_at 갱신

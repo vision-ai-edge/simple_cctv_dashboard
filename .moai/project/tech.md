@@ -10,7 +10,7 @@
 | **컴포넌트 라이브러리** | shadcn-svelte | 1.0+ | 접근성 높은 UI 컴포넌트 (Button, Modal, Toast 등) |
 | **지도** | Leaflet | 1.9+ | 오픈소스 지도 라이브러리 (OSM 지원) |
 | **지도 타입스크립트** | leaflet-typescript | - | Leaflet 타입 정의 |
-| **영상 재생** | hls.js | 1.6+ | HTTP Live Streaming (HLS) 플레이어 |
+| **영상 재생** | hls.js | 1.6+ | HTTP Live Streaming (HLS) 플레이어 (SPEC-BOX-CHANNELS-001에서 dynamic import 사용) |
 | **HTTP 클라이언트** | fetch (native) | - | 기본 Web API 사용 |
 | **상태관리** | SvelteKit stores | - | 내장 반응형 저장소 |
 | **실시간 통신** | EventSource (SSE) | - | 서버 전송 이벤트 (웹소켓 대체) |
@@ -142,6 +142,13 @@
 - **상태 전이**:
   - `status='active'` 유지 → 3회 연속 실패 → `status='error'`
   - `status='error'` 또는 `'inactive'` → 폴링 스킵
+
+### 채널 동기화 워커 (channelSyncPoller, SPEC-BOX-CHANNELS-001)
+- **주기**: `CHANNEL_SYNC_INTERVAL_MS` 환경변수 (기본: 300000ms = 5분, 최소: 30000ms)
+- **동시 처리**: `CHANNEL_SYNC_CONCURRENCY` 환경변수 (기본: 3, 최대 동시 Box 수)
+- **타임아웃**: Box API 호출당 10초
+- **뮤텍스**: Set 기반 진행 중 플래그로 중복 폴링 방지
+- **오류 격리**: 개별 Box 동기화 실패가 다른 Box 처리를 중단하지 않음
 - **구현**: setInterval 기반 싱글톤 패턴, 서버 시작 시 부팅, 셧다운 훅에서 정리
 
 ### 보안 강화

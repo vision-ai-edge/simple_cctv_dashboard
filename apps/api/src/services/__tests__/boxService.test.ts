@@ -132,7 +132,8 @@ describe('registerBox', () => {
     expect(result.baseUrl).toBe('https://192.168.1.100:8443/api');
     expect(result.username).toBe('admin');
     expect(result.id).toBeTruthy();
-    expect(result.createdAt).toBeInstanceOf(Date);
+    expect(typeof result.createdAt).toBe('number');
+    expect(result.createdAt).toBeGreaterThan(0);
 
     // DB 에 실제로 저장되었는지 확인
     const row = db.$client.query('SELECT * FROM boxes WHERE id = ?').get(result.id) as Record<

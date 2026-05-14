@@ -40,11 +40,17 @@ export type RegisterBoxInput = {
 export type BoxSummary = {
   id: string;
   name: string;
+  host: string;
+  port: number;
   baseUrl: string;
   username: string;
   status: 'active' | 'inactive' | 'error';
-  lastSyncAt: Date | null;
-  createdAt: Date;
+  /** Unix epoch ms — JSON 직렬화 호환을 위해 number 로 통일 */
+  lastSyncAt: number | null;
+  /** Unix epoch ms */
+  createdAt: number;
+  /** Unix epoch ms */
+  updatedAt: number;
 };
 
 /**
@@ -58,6 +64,11 @@ export type BoxServiceDeps = {
   vaultKey: string;
   /** BoxClient 팩토리 (테스트 mock 용이) */
   createBoxClient: (baseUrl: string, token?: string) => BoxClient;
+  /**
+   * SPEC-BOX-CHANNELS-001 REQ-CHAN-001: Box 등록 완료 후 fire-and-forget 훅.
+   * 채널 동기화를 비동기로 실행한다. 오류 발생 시 응답에 영향 없음.
+   */
+  onBoxRegistered?: (boxId: string) => Promise<void>;
 };
 
 // ---------------------------------------------------------------------------
@@ -105,11 +116,11 @@ export class BoxNotFoundError extends Error {
 /** SELECT 에서 사용할 공개 컬럼 목록 (자격증명 제외) */
 const BOX_SUMMARY_SQL = `
   SELECT id, name, base_url as baseUrl, username, status,
-         last_sync_at as lastSyncAt, created_at as createdAt
+         last_sync_at as lastSyncAt, created_at as createdAt, updated_at as updatedAt
   FROM boxes
 `.trim();
 
-/** 공개 컬럼 raw 행 타입 */
+/** 공개 컬럼 raw 행 타입 (DB 스키마에는 host/port 컬럼이 없으며 baseUrl 로부터 derive 한다) */
 type BoxSummaryRow = {
   id: string;
   name: string;
@@ -118,15 +129,36 @@ type BoxSummaryRow = {
   status: 'active' | 'inactive' | 'error';
   lastSyncAt: number | null;
   createdAt: number;
+  updatedAt: number;
 };
 
-/** 자격증명 포함 raw 행 타입 (내부 전용) */
-type BoxCredentialRow = {
+/**
+ * baseUrl 에서 host 와 port 를 추출한다.
+ * 형식: `https://{host}:{port}/api`
+ * URL 파싱 실패 시 빈 host / 0 port 를 반환한다 (방어적).
+ */
+function _parseHostPort(baseUrl: string): { host: string; port: number } {
+  try {
+    const url = new URL(baseUrl);
+    const defaultPort = url.protocol === 'https:' ? 443 : 80;
+    return {
+      host: url.hostname,
+      port: url.port ? Number.parseInt(url.port, 10) : defaultPort,
+    };
+  } catch {
+    return { host: '', port: 0 };
+  }
+}
+
+/** 자격증명 포함 raw 행 타입 (내부 + channelSyncService 공유) */
+export type BoxCredentialRow = {
   id: string;
   baseUrl: string;
   username: string;
   passwordEnc: Uint8Array;
   jwtCachedEnc: Uint8Array | null;
+  /** SPEC-BOX-CHANNELS-001: API Key 암호화 blob (채널 동기화용) */
+  apiKeyCachedEnc?: Uint8Array | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -136,9 +168,17 @@ type BoxCredentialRow = {
 /**
  * host + port 로부터 baseUrl 을 생성한다.
  * 형식: `https://{host}:{port}/api`
+ *
+ * 방어적: 사용자가 host 필드에 스키마(https://, http://)나 경로(/api 등)를
+ * 포함하더라도 baseUrl 이 이중 스키마(`https://https://...`)가 되지 않도록 정규화한다.
  */
 function buildBaseUrl(host: string, port: number): string {
-  return `https://${host}:${port}/api`;
+  // 스키마 제거 + 후행 슬래시/경로 제거 + 양끝 공백 제거
+  const cleanHost = host
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/.*$/, '');
+  return `https://${cleanHost}:${port}/api`;
 }
 
 /**
@@ -146,14 +186,18 @@ function buildBaseUrl(host: string, port: number): string {
  * epoch ms (INTEGER) 를 Date 로 변환하며, 자격증명 컬럼은 포함하지 않는다.
  */
 function toBoxSummary(row: BoxSummaryRow): BoxSummary {
+  const { host, port } = _parseHostPort(row.baseUrl);
   return {
     id: row.id,
     name: row.name,
+    host,
+    port,
     baseUrl: row.baseUrl,
     username: row.username,
     status: row.status,
-    lastSyncAt: row.lastSyncAt !== null ? new Date(row.lastSyncAt) : null,
-    createdAt: new Date(row.createdAt),
+    lastSyncAt: row.lastSyncAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
@@ -169,13 +213,15 @@ function querySummaryRow(db: Db, id: string): BoxSummaryRow {
 
 /**
  * ID 로 자격증명 포함 행을 조회한다.
+ * channelSyncService 에서도 사용하므로 export 처리.
  * @throws BoxNotFoundError — 미발견 시
  */
-function queryCredentialRow(db: Db, id: string): BoxCredentialRow {
+export function queryCredentialRow(db: Db, id: string): BoxCredentialRow {
   const row = db.$client
     .query(
       `SELECT id, base_url as baseUrl, username,
-              password_enc as passwordEnc, jwt_cached_enc as jwtCachedEnc
+              password_enc as passwordEnc, jwt_cached_enc as jwtCachedEnc,
+              api_key_cached_enc as apiKeyCachedEnc
        FROM boxes WHERE id = ?`,
     )
     .get(id) as BoxCredentialRow | null;
@@ -260,7 +306,20 @@ export async function registerBox(
       .run(apiKeyCachedEnc, Date.now(), id);
   }
 
-  return toBoxSummary(querySummaryRow(db, id));
+  const summary = toBoxSummary(querySummaryRow(db, id));
+
+  // SPEC-BOX-CHANNELS-001 REQ-CHAN-001: 등록 직후 채널 동기화 fire-and-forget
+  // await 없이 호출하여 응답에 영향을 주지 않음. Promise rejection은 로그로만 처리.
+  if (deps.onBoxRegistered) {
+    deps.onBoxRegistered(id).catch((err: unknown) => {
+      console.error('[boxService] 채널 동기화 fire-and-forget 오류:', {
+        boxId: id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+  }
+
+  return summary;
 }
 
 /**

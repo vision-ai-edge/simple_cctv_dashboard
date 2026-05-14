@@ -28,6 +28,7 @@ import {
   refreshTokens,
   registerBox,
 } from '../services/boxService';
+import { createChannelRoutes } from './channels';
 
 // ---------------------------------------------------------------------------
 // 입력 스키마
@@ -202,6 +203,13 @@ export function createBoxRoutes(opts: CreateBoxRoutesOptions): Hono {
       throw err;
     }
   });
+
+  // -------------------------------------------------------------------------
+  // SPEC-BOX-CHANNELS-001: 채널 서브라우터 마운트
+  // /:id/channels/* — 모든 채널 관련 라우트
+  // -------------------------------------------------------------------------
+  const channelRoutes = createChannelRoutes({ deps, jwtSecret });
+  router.route('/:id/channels', channelRoutes);
 
   return router;
 }

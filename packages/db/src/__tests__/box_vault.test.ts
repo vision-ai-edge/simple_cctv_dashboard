@@ -64,9 +64,11 @@ describe('0003_box_vault 마이그레이션', () => {
     await runMigrations({ databasePath: TMP_DB });
     const sqlite = new Database(TMP_DB);
 
-    const columns = sqlite
-      .query('PRAGMA table_info(boxes)')
-      .all() as { name: string; type: string; notnull: number }[];
+    const columns = sqlite.query('PRAGMA table_info(boxes)').all() as {
+      name: string;
+      type: string;
+      notnull: number;
+    }[];
 
     const jwtEncCol = columns.find((c) => c.name === 'jwt_cached_enc');
     expect(jwtEncCol).toBeDefined();
@@ -79,9 +81,11 @@ describe('0003_box_vault 마이그레이션', () => {
     await runMigrations({ databasePath: TMP_DB });
     const sqlite = new Database(TMP_DB);
 
-    const columns = sqlite
-      .query('PRAGMA table_info(boxes)')
-      .all() as { name: string; type: string; notnull: number }[];
+    const columns = sqlite.query('PRAGMA table_info(boxes)').all() as {
+      name: string;
+      type: string;
+      notnull: number;
+    }[];
 
     const apiKeyEncCol = columns.find((c) => c.name === 'api_key_cached_enc');
     expect(apiKeyEncCol).toBeDefined();
@@ -94,9 +98,10 @@ describe('0003_box_vault 마이그레이션', () => {
     await runMigrations({ databasePath: TMP_DB });
     const sqlite = new Database(TMP_DB);
 
-    const columns = sqlite
-      .query('PRAGMA table_info(boxes)')
-      .all() as { name: string; notnull: number }[];
+    const columns = sqlite.query('PRAGMA table_info(boxes)').all() as {
+      name: string;
+      notnull: number;
+    }[];
 
     const col = columns.find((c) => c.name === 'jwt_cached_enc');
     // notnull = 0 → NULL 허용
@@ -109,9 +114,10 @@ describe('0003_box_vault 마이그레이션', () => {
     await runMigrations({ databasePath: TMP_DB });
     const sqlite = new Database(TMP_DB);
 
-    const columns = sqlite
-      .query('PRAGMA table_info(boxes)')
-      .all() as { name: string; notnull: number }[];
+    const columns = sqlite.query('PRAGMA table_info(boxes)').all() as {
+      name: string;
+      notnull: number;
+    }[];
 
     const col = columns.find((c) => c.name === 'api_key_cached_enc');
     expect(col?.notnull).toBe(0);
@@ -251,9 +257,7 @@ describe('기존 boxes 데이터 보존', () => {
     await runMigrations({ databasePath: TMP_DB });
     const sqlite = new Database(TMP_DB);
 
-    const columns = sqlite
-      .query('PRAGMA table_info(boxes)')
-      .all() as { name: string }[];
+    const columns = sqlite.query('PRAGMA table_info(boxes)').all() as { name: string }[];
 
     const names = columns.map((c) => c.name);
     // 기존 text 컬럼은 제거하지 않는다

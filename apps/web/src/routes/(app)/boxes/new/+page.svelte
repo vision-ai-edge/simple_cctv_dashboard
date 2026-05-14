@@ -6,7 +6,7 @@
  * 실패 시 password 필드를 비워서 반환 (REQ-UI-2 [Unwanted]).
  */
 
-import { enhance } from '$app/forms';
+import { applyAction, enhance } from '$app/forms';
 import type { ActionData } from './$types';
 
 const { form }: { form: ActionData } = $props();
@@ -45,9 +45,11 @@ let submitting = $state(false);
       method="POST"
       use:enhance={() => {
         submitting = true;
-        return async ({ update }) => {
+        return async ({ result }) => {
           submitting = false;
-          await update();
+          // applyAction 은 redirect/success/failure/error 모두 기본 동작으로 처리.
+          // 직전엔 update() 만 호출하여 303 redirect 가 무시되던 문제를 해소한다.
+          await applyAction(result);
         };
       }}
       class="space-y-4"
@@ -87,8 +89,11 @@ let submitting = $state(false);
           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 font-mono placeholder-slate-400
                  focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20
                  disabled:cursor-not-allowed disabled:bg-slate-50"
-          placeholder="예: 192.168.1.10"
+          placeholder="예: 192.168.1.10 또는 box.example.com"
         />
+        <p class="mt-1 text-xs text-slate-500">
+          도메인 또는 IP만 입력하세요. <code>https://</code> 등 스키마와 경로는 자동으로 제거됩니다.
+        </p>
       </div>
 
       <!-- 포트 -->

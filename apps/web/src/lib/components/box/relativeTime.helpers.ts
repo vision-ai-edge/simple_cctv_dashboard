@@ -18,12 +18,18 @@
  * @param value - Date 객체, 밀리초 타임스탬프, 또는 null
  * @param now   - 기준 시각 (밀리초), 기본값은 Date.now()
  */
-export function formatRelativeTime(value: Date | number | null, now: number = Date.now()): string {
-  if (value === null) {
+export function formatRelativeTime(
+  value: Date | number | string | null | undefined,
+  now: number = Date.now(),
+): string {
+  if (value === null || value === undefined) {
     return '동기화 이력 없음';
   }
 
-  const ts = value instanceof Date ? value.getTime() : value;
+  const ts = _toEpochMs(value);
+  if (ts === null) {
+    return '동기화 이력 없음';
+  }
   const diffMs = now - ts;
   const diffSec = Math.floor(diffMs / 1000);
   const diffMin = Math.floor(diffSec / 60);
@@ -61,8 +67,28 @@ export function formatRelativeTime(value: Date | number | null, now: number = Da
  *
  * @param value - Date 객체, 밀리초 타임스탬프, 또는 null
  */
-export function toIsoString(value: Date | number | null): string {
-  if (value === null) return '';
-  const ts = value instanceof Date ? value.getTime() : value;
+export function toIsoString(value: Date | number | string | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  const ts = _toEpochMs(value);
+  if (ts === null) return '';
   return new Date(ts).toISOString();
+}
+
+/**
+ * Date | number | string 값을 안전하게 Unix epoch ms 로 변환한다.
+ * 변환 불가(NaN, 빈 문자열, 잘못된 형식)이면 null 반환.
+ */
+function _toEpochMs(value: Date | number | string): number | null {
+  let ts: number;
+  if (value instanceof Date) {
+    ts = value.getTime();
+  } else if (typeof value === 'number') {
+    ts = value;
+  } else if (typeof value === 'string') {
+    if (value.trim() === '') return null;
+    ts = Date.parse(value);
+  } else {
+    return null;
+  }
+  return Number.isFinite(ts) ? ts : null;
 }

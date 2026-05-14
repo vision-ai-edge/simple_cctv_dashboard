@@ -9,6 +9,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./crypto/vault": {
+      "types": "./src/crypto/vault.ts",
+      "import": "./src/crypto/vault.ts"
     }
   },
   "scripts": {

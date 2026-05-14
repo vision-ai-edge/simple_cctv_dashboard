@@ -33,7 +33,7 @@ interface RegisterFields {
  * 폼 데이터 유효성 검사.
  * 검사 항목: 필수 필드, port 범위(1-65535)
  */
-export function validateRegisterInput(fields: RegisterFields):
+export function _validateRegisterInput(fields: RegisterFields):
   | {
       ok: true;
       data: {
@@ -84,7 +84,7 @@ export function validateRegisterInput(fields: RegisterFields):
 /**
  * 에러 kind에 해당하는 한국어 등록 실패 메시지를 반환한다.
  */
-export function mapRegisterFailureToMessage(kind: BoxErrorKind): string {
+export function _mapRegisterFailureToMessage(kind: BoxErrorKind): string {
   const messages: Record<BoxErrorKind, string> = {
     auth: 'EdgeAI Box 자격증명을 확인하세요',
     duplicate: '동일한 Box(host:port)가 이미 등록되어 있습니다',
@@ -100,7 +100,7 @@ export function mapRegisterFailureToMessage(kind: BoxErrorKind): string {
  * password 필드를 제거한 객체를 반환한다.
  * REQ-UI-2 [Unwanted]: 실패 응답에 password 평문 미포함.
  */
-export function stripPassword<T extends Record<string, unknown>>(data: T): Omit<T, 'password'> {
+export function _stripPassword<T extends Record<string, unknown>>(data: T): Omit<T, 'password'> {
   const { password: _drop, ...safe } = data;
   return safe as Omit<T, 'password'>;
 }
@@ -135,10 +135,10 @@ export const actions: Actions = {
     };
 
     // 입력값 유효성 검사
-    const validation = validateRegisterInput(fields);
+    const validation = _validateRegisterInput(fields);
     if (!validation.ok) {
       // password 제외 후 명시적 타입으로 반환 (REQ-UI-2)
-      const safeFields = stripPassword(fields);
+      const safeFields = _stripPassword(fields);
       return fail(422, {
         name: safeFields.name,
         host: safeFields.host,
@@ -158,8 +158,8 @@ export const actions: Actions = {
     }
 
     // 실패 → 에러 메시지와 함께 폼 재표시 (password 제외)
-    const errorMessage = mapRegisterFailureToMessage(result.error.kind);
-    const safeFields = stripPassword(fields);
+    const errorMessage = _mapRegisterFailureToMessage(result.error.kind);
+    const safeFields = _stripPassword(fields);
     return fail(result.error.status || 400, {
       name: safeFields.name,
       host: safeFields.host,

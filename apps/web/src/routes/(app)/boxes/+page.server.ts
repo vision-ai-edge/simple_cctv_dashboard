@@ -14,9 +14,9 @@ import type { PageServerLoad } from './$types';
 
 /**
  * fetchBoxes 결과를 기반으로 load 반환값을 결정하는 순수 함수.
- * 테스트 용이성을 위해 export한다.
+ * SvelteKit은 +page.server.ts에서 정해진 export 외에 `_` 접두사 export만 허용한다.
  */
-export function loadLogic(
+export function _loadLogic(
   fetchResult: { ok: true; boxes: BoxSummary[] } | { ok: false; error: BoxError },
 ): { boxes: BoxSummary[]; error?: string } {
   if (!fetchResult.ok) {
@@ -38,5 +38,5 @@ export const load: PageServerLoad = async ({ fetch: eventFetch, locals }) => {
     redirect(303, '/login');
   }
 
-  return loadLogic(fetchResult);
+  return _loadLogic(fetchResult);
 };

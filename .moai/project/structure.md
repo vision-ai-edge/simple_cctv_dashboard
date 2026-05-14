@@ -91,7 +91,8 @@ simple_cctv_dashboard/
 │       │   │   ├── 0001_initial.sql
 │       │   │   ├── 0002_auth_blacklist.sql (SPEC-AUTH-001)
 │       │   │   ├── 0003_box_vault.sql (SPEC-BOX-001 — jwt_cached_enc, api_key_cached_enc)
-│       │   │   └── 0004_box_unique_url.sql (SPEC-BOX-001 — base_url UNIQUE INDEX)
+│       │   │   ├── 0004_box_unique_url.sql (SPEC-BOX-001 — base_url UNIQUE INDEX)
+│       │   │   └── 0005_add_camera_sync_columns.sql (SPEC-BOX-CHANNELS-001 — last_synced_at, sync_error)
 │       │   ├── migrate.ts            # 마이그레이션 러너
 │       │   ├── seed.ts               # 시드 스크립트
 │       │   └── index.ts
@@ -110,19 +111,21 @@ simple_cctv_dashboard/
 │   │   │   │   ├── health.ts        # GET /api/health
 │   │   │   │   ├── auth.ts          # /api/auth/* (login, logout, me, refresh) — SPEC-AUTH-001
 │   │   │   │   ├── boxes.ts         # GET/POST /api/boxes/* (5 엔드포인트) — SPEC-BOX-001
+│   │   │   │   ├── channels.ts      # POST/GET /api/boxes/:id/channels/* (5 엔드포인트) — SPEC-BOX-CHANNELS-001
 │   │   │   │   ├── cameras.ts       # GET/POST /api/cameras (후속)
 │   │   │   │   ├── alerts.ts        # GET /api/alerts (후속)
 │   │   │   │   └── index.ts
 │   │   │   ├── services/
 │   │   │   │   ├── authService.ts   # 사용자 인증 로직
 │   │   │   │   ├── boxService.ts    # Box 등록/조회/삭제, 401 재인증 가드 (SPEC-BOX-001)
+│   │   │   │   ├── channelSyncService.ts # 채널 동기화, Upsert, 상태 변환 (SPEC-BOX-CHANNELS-001)
 │   │   │   │   ├── alertService.ts  # 알림 관리 및 전송
 │   │   │   │   └── streamService.ts # 스트리밍 프록시
 │   │   │   ├── workers/             # 백그라운드 워커
 │   │   │   │   ├── boxStatusPoller.ts # 60초 Box 상태 폴링 (SPEC-BOX-001)
+│   │   │   │   ├── channelSyncPoller.ts # 주기 채널 동기화 폴러, 뮤텍스, 동시성 제어 (SPEC-BOX-CHANNELS-001)
 │   │   │   │   ├── detectionPoller.ts # 이벤트 폴링 (후속)
-│   │   │   │   ├── tokenRefresher.ts  # 토큰 갱신 (후속)
-│   │   │   │   └── channelSyncer.ts   # 채널 동기화 (후속)
+│   │   │   │   └── tokenRefresher.ts  # 토큰 갱신 (후속)
 │   │   │   ├── db/
 │   │   │   │   └── client.ts        # SQLite 클라이언트
 │   │   │   └── types/
@@ -154,11 +157,28 @@ simple_cctv_dashboard/
 │       │   │       │   │   ├── +page.server.ts  # 등록 action (SPEC-BOX-UI-001)
 │       │   │       │   │   └── +page.svelte     # 등록 폼 (SPEC-BOX-UI-001)
 │       │   │       │   └── [id]/
-│       │   │       │       ├── +page.server.ts  # 상세 load + delete/refresh actions (SPEC-BOX-UI-001)
-│       │   │       │       └── +page.svelte     # 상세 뷰 (SPEC-BOX-UI-001)
+│       │   │       │       ├── +page.server.ts  # 상세 load + delete/refresh/lazy sync actions (SPEC-BOX-UI-001, SPEC-BOX-CHANNELS-001)
+│       │   │       │       ├── +page.svelte     # 상세 뷰 + 채널 섹션 (SPEC-BOX-UI-001, SPEC-BOX-CHANNELS-001)
+│       │   │       │       └── api/
+│       │   │       │           └── boxes/
+│       │   │       │               └── [id]/
+│       │   │       │                   ├── channels/
+│       │   │       │                   │   ├── sync/+server.ts  # 동기화 프록시 (SPEC-BOX-CHANNELS-001)
+│       │   │       │                   │   └── [channelId]/
+│       │   │       │                   │       ├── start/+server.ts  # 활성화 프록시 (SPEC-BOX-CHANNELS-001)
+│       │   │       │                   │       ├── stop/+server.ts   # 비활성화 프록시 (SPEC-BOX-CHANNELS-001)
+│       │   │       │                   │       ├── snapshot/+server.ts # 스냅샷 프록시 (SPEC-BOX-CHANNELS-001)
+│       │   │       │                   │       └── hls/
+│       │   │       │                   │           ├── playlist.m3u8/+server.ts # HLS m3u8 프록시 (SPEC-BOX-CHANNELS-001)
+│       │   │       │                   │           └── segment/[name]/+server.ts # HLS 세그먼트 프록시 (SPEC-BOX-CHANNELS-001)
 │       │   │       └── [기타 보호 라우트]
 │       │   ├── lib/
 │       │   │   ├── components/
+│       │   │   │   ├── channel/
+│       │   │   │   │   ├── ChannelList.svelte # 채널 목록 컴포넌트 (SPEC-BOX-CHANNELS-001)
+│       │   │   │   │   ├── ChannelRow.svelte  # 채널 행 (토글, 스냅샷, HLS 프리뷰) (SPEC-BOX-CHANNELS-001)
+│       │   │   │   │   ├── ChannelPreview.svelte # HLS 인라인 프리뷰 (SPEC-BOX-CHANNELS-001)
+│       │   │   │   │   └── channelBadge.helpers.ts # 상태 배지 헬퍼 (SPEC-BOX-CHANNELS-001)
 │       │   │   │   ├── box/
 │       │   │   │   │   ├── StatusBadge.svelte # 상태 배지 (SPEC-BOX-UI-001)
 │       │   │   │   │   ├── BoxCard.svelte     # 목록 카드 (SPEC-BOX-UI-001)
@@ -167,7 +187,10 @@ simple_cctv_dashboard/
 │       │   │   │   │   └── relativeTime.helpers.ts # 순수 함수 (SPEC-BOX-UI-001)
 │       │   │   │   └── [UI 컴포넌트 - 후속]
 │       │   │   ├── api/
-│       │   │   │   └── boxes.ts      # BoxSummary 타입 + fetch 헬퍼 (FetchLike 의존성 주입, SPEC-BOX-UI-001)
+│       │   │   │   ├── boxes.ts      # BoxSummary 타입 + fetch 헬퍼 (FetchLike 의존성 주입, SPEC-BOX-UI-001)
+│       │   │   │   └── channels.ts   # 채널 API 클라이언트 함수 6개 (SPEC-BOX-CHANNELS-001)
+│       │   │   ├── types/
+│       │   │   │   └── channel.ts    # Channel, ChannelSyncResult 타입 (SPEC-BOX-CHANNELS-001)
 │       │   │   ├── server/
 │       │   │   │   └── auth.ts       # getCurrentUser 헬퍼 (SPEC-AUTH-001)
 │       │   │   ├── stores/

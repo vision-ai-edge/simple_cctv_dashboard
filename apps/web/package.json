@@ -8,11 +8,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "test": "bun test src/__tests__/routes/login/page-server.test.ts src/__tests__/routes/app/layout-server.test.ts src/__tests__/routes/boxes/list-page-server.test.ts src/__tests__/routes/boxes/new-page-server.test.ts src/__tests__/routes/boxes/id-page-server.test.ts src/__tests__/lib/components/box/status-badge.test.ts src/__tests__/lib/components/box/relative-time.test.ts src/__tests__/lib/api/boxes.test.ts",
-    "test:cov": "bun test --coverage src/__tests__/routes/login/page-server.test.ts src/__tests__/routes/app/layout-server.test.ts src/__tests__/routes/boxes/list-page-server.test.ts src/__tests__/routes/boxes/new-page-server.test.ts src/__tests__/routes/boxes/id-page-server.test.ts src/__tests__/lib/components/box/status-badge.test.ts src/__tests__/lib/components/box/relative-time.test.ts src/__tests__/lib/api/boxes.test.ts"
+    "test": "bun test src/__tests__/routes/login/page-server.test.ts src/__tests__/routes/app/layout-server.test.ts src/__tests__/routes/boxes/list-page-server.test.ts src/__tests__/routes/boxes/new-page-server.test.ts src/__tests__/routes/boxes/id-page-server.test.ts src/__tests__/lib/components/box/status-badge.test.ts src/__tests__/lib/components/box/relative-time.test.ts src/__tests__/lib/api/boxes.test.ts src/__tests__/lib/components/channel/channelBadge.test.ts src/__tests__/lib/api/channels.test.ts src/__tests__/routes/channels/id-page-server-channels.test.ts",
+    "test:cov": "bun test --coverage src/__tests__/routes/login/page-server.test.ts src/__tests__/routes/app/layout-server.test.ts src/__tests__/routes/boxes/list-page-server.test.ts src/__tests__/routes/boxes/new-page-server.test.ts src/__tests__/routes/boxes/id-page-server.test.ts src/__tests__/lib/components/box/status-badge.test.ts src/__tests__/lib/components/box/relative-time.test.ts src/__tests__/lib/api/boxes.test.ts src/__tests__/lib/components/channel/channelBadge.test.ts src/__tests__/lib/api/channels.test.ts src/__tests__/routes/channels/id-page-server-channels.test.ts"
   },
   "dependencies": {
-    "@cctv/shared": "workspace:*"
+    "@cctv/shared": "workspace:*",
+    "hls.js": "^1.6.16"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^3.3.0",

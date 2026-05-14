@@ -101,12 +101,18 @@ export const cameras = sqliteTable(
     resolution: text('resolution'),
     streamUrl: text('stream_url'),
     status: text('status', { enum: cameraStatusValues }).notNull().default('offline'),
+    /** SPEC-BOX-CHANNELS-001: 마지막 채널 동기화 성공 시각 (Unix ms, nullable) */
+    lastSyncedAt: integer('last_synced_at'),
+    /** SPEC-BOX-CHANNELS-001: 마지막 동기화 실패 메시지 (nullable, 성공 시 NULL) */
+    syncError: text('sync_error'),
     createdAt: integer('created_at').notNull().default(nowMs),
     updatedAt: integer('updated_at').notNull().default(nowMs),
   },
   (t) => ({
     boxIdIdx: index('cameras_box_id_idx').on(t.boxId),
     statusIdx: index('cameras_status_idx').on(t.status),
+    /** SPEC-BOX-CHANNELS-001: (box_id, channel_id) 복합 유니크 인덱스 */
+    boxChannelUniq: uniqueIndex('cameras_box_channel_unique').on(t.boxId, t.channelId),
   }),
 );
 

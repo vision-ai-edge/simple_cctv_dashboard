@@ -2,10 +2,10 @@
 ---
 id: SPEC-BOX-CHANNELS-001
 title: EdgeAI Box 채널 동기화 및 채널 관리 UI
-status: draft
-version: 0.2.0
+status: completed
+version: 0.3.0
 created: 2026-05-14
-updated: 2026-05-14
+updated: 2026-05-15
 owner: imgughyeon
 related_specs:
   - SPEC-CORE-001  # 모노레포 기반 구조
@@ -315,3 +315,65 @@ POST /api/boxes/:boxId/channels/:channelId/webrtc/signal
 - 채널별 알림 규칙 (SPEC-ALERT-* 범위)
 - 카메라 그룹 관리 (별도 SPEC)
 - HLS 프록시 캐싱 레이어 (현재 범위: no-store, 향후 CDN 연동 시 별도 SPEC)
+
+---
+
+## 구현 노트 (Implementation Notes, 2026-05-15)
+
+### 구현 완료 범위
+
+**백엔드**
+- `channelSyncService.ts`: Box 채널 목록 동기화, Upsert, 상태 변환(ChannelStatus → CameraStatus), 타임아웃 처리 (10초), 오류 격리
+- `channels.ts` Hono 라우트: 5개 엔드포인트 구현
+  - `POST /api/boxes/:id/channels/sync` — 수동 동기화 트리거
+  - `GET /api/boxes/:id/channels` — 채널 목록 조회
+  - `POST /api/boxes/:boxId/channels/:channelId/start` — 채널 활성화
+  - `POST /api/boxes/:boxId/channels/:channelId/stop` — 채널 비활성화
+  - `GET /api/boxes/:boxId/channels/:channelId/snapshot` — 스냅샷 프록시
+- `channelSyncPoller.ts`: 주기 폴링 스케줄러, `CHANNEL_SYNC_INTERVAL_MS`(기본 300000ms), `CHANNEL_SYNC_CONCURRENCY`(기본 3) 환경변수, Box 단위 뮤텍스(Set 기반), 오류 격리
+- DB 마이그레이션 0005: `last_synced_at`, `sync_error` 컬럼 추가, `(box_id, channel_id)` 복합 유니크 인덱스
+
+**프론트엔드**
+- `ChannelList.svelte`: 채널 목록 표시 (이름, ID, 상태 배지, 마지막 동기화 시각, 빈 목록 메시지)
+- `ChannelRow.svelte`: 채널 행 (토글 버튼, 스냅샷 버튼, HLS 프리뷰 토글, Optimistic UI 롤백)
+- `ChannelPreview.svelte`: HLS 인라인 프리뷰 (video 태그 + hls.js dynamic import, 자체 도메인 프록시 URL)
+- `lib/api/channels.ts`: API 클라이언트 함수 6개
+- SvelteKit API 라우트 6개 (프록시):
+  - `sync/+server.ts` — 동기화 프록시
+  - `[channelId]/start/+server.ts` — 활성화 프록시
+  - `[channelId]/stop/+server.ts` — 비활성화 프록시
+  - `[channelId]/snapshot/+server.ts` — 스냅샷 프록시
+  - `[channelId]/hls/playlist.m3u8/+server.ts` — HLS m3u8 프록시 (세그먼트 URL 재작성, 자격증명 서버 주입)
+  - `[channelId]/hls/segment/[name]/+server.ts` — HLS 세그먼트 프록시
+- Box 상세 페이지 (`+page.svelte`): 채널 섹션 추가
+- `+page.server.ts`: Lazy 동기화 트리거 (TTL 30초), 채널 목록 로드
+
+### 사용자 결정으로 제외된 범위
+
+- WebRTC 시그널링 프록시 라우트 (REQ-CHAN-007 Optional 부분) — 별도 SPEC으로 분리 권고
+
+### 부수 수정사항
+
+- `packages/shared/package.json`: `@cctv/shared/crypto/vault` subpath export 추가 (SPEC-BOX-001부터 잠재했던 런타임 모듈 해석 오류 해소)
+- `biome --fix --unsafe`: non-null assertion → optional chaining 자동 정리
+
+### 추가된 의존성
+
+- `hls.js@^1.6.16` — `apps/web` runtime dependency (dynamic import 사용)
+
+### 추가된 환경변수
+
+- `CHANNEL_SYNC_INTERVAL_MS` (기본 300000ms = 5분, 최소 30000ms)
+- `CHANNEL_SYNC_CONCURRENCY` (기본 3, 주기 폴링 동시 처리 Box 수)
+
+### 품질 검증 결과
+
+- `bun test`: 361 pass / 0 fail / 28 test files
+- `Biome` 린트: 0 errors (기존 box_vault.test.ts 코드 5 warnings는 본 SPEC 외)
+- `TypeScript strict`: 0 errors
+- 회귀 테스트: SPEC-BOX-001, SPEC-BOX-UI-001, SPEC-AUTH-001 전량 통과
+
+### 미해결 / 후속 작업
+
+- DB 마이그레이션 0005는 코드 커밋만 됨. 실제 DB 적용은 사용자 환경에서 `bun --filter @cctv/db run migrate` 등으로 수행 필요
+- AC-005~AC-014 UI 시나리오 수동 검증 필요 (브라우저에서 토글/스냅샷/HLS 프리뷰/빈 채널 메시지/지연)

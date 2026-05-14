@@ -63,10 +63,14 @@ CCTV 카메라를 실제 지도 위에 배치하고, EdgeAI Box API를 통해 �
 - **설명**: 데이터 모델에서 `box_id` 컬럼 포함하여 MVP 실행 후 확장 용이
 - **범위**: 인증, 채널 동기화, UI 흐름 모두 box-aware 설계
 
-### 7. Box 등록 & 채널 동기화 — 등록 백엔드 + UI 구현 완료 (SPEC-BOX-001, SPEC-BOX-UI-001)
-- **설명**: EdgeAI Box URL, 자격증명 입력 후 채널 자동 동기화
-- **범위**: 최초 1회 등록, 주기적 갱신 워커
-- **구현 상태**: Box 등록·자격증명 볼트(AES-GCM)·헬스체크·60초 상태 폴링 완료. 프론트엔드 UI(목록·등록·상세·삭제·수동 갱신, visibility-gated 15초 폴링)는 SPEC-BOX-UI-001에서 구현 완료. 채널 동기화는 후속 SPEC-BOX-002로 분리.
+### 7. EdgeAI Box 관리 및 채널 동기화 — 완료 (SPEC-BOX-001, SPEC-BOX-UI-001, SPEC-BOX-CHANNELS-001)
+- **설명**: EdgeAI Box URL, 자격증명 입력 후 채널 자동 동기화, 채널 관리 UI
+- **범위**: Box 등록, 주기적 갱신 워커, 채널 목록 표시, 활성/비활성 토글, 스냅샷, HLS 라이브 프리뷰
+- **구현 상태**: 
+  - Box 기능 (SPEC-BOX-001, SPEC-BOX-UI-001): 등록·자격증명 볼트(AES-GCM)·헬스체크·60초 상태 폴링 완료
+  - 채널 동기화 기능 (SPEC-BOX-CHANNELS-001): 
+    - 백엔드: 채널 동기화 서비스(Upsert, 상태 변환), 주기 폴링 워커(5분 기본, 최대 동시 3개, 30초 클램핑), 5개 API 라우트(sync/start/stop/snapshot/HLS 프록시)
+    - 프론트엔드: 채널 목록, 토글(Optimistic UI), 스냅샷, HLS 인라인 프리뷰(hls.js dynamic import, 자체 도메인 프록시)
 
 ### 8. 사용자 인증 (로그인/로그아웃) — 구현 완료 (SPEC-AUTH-001)
 - **설명**: JWT HttpOnly 쿠키 기반 인증 시스템

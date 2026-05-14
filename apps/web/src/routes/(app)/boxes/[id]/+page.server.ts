@@ -24,7 +24,7 @@ import type { Actions, PageServerLoad } from './$types';
 /**
  * fetchBox 결과를 기반으로 load 반환값 종류를 결정한다.
  */
-export function loadDetailLogic(
+export function _loadDetailLogic(
   fetchResult: { ok: true; box: BoxSummary } | { ok: false; error: BoxError },
 ):
   | { type: 'ok'; box: BoxSummary }
@@ -46,7 +46,7 @@ export function loadDetailLogic(
 /**
  * deleteBoxById 결과를 기반으로 액션 결과를 결정한다.
  */
-export function decideDeleteOutcome(
+export function _decideDeleteOutcome(
   deleteResult: { ok: true } | { ok: false; error: BoxError },
 ): { type: 'redirect' } | { type: 'error'; message: string; status: number } {
   if (deleteResult.ok) {
@@ -62,7 +62,7 @@ export function decideDeleteOutcome(
 /**
  * refreshBoxTokens 결과를 기반으로 액션 결과를 결정한다.
  */
-export function decideRefreshOutcome(
+export function _decideRefreshOutcome(
   refreshResult: { ok: true; box: BoxSummary } | { ok: false; error: BoxError },
 ): { type: 'ok'; box: BoxSummary } | { type: 'error'; message: string; status: number } {
   if (refreshResult.ok) {
@@ -133,7 +133,7 @@ export const load: PageServerLoad = async ({ params, fetch: eventFetch, locals }
   }
 
   const fetchResult = await fetchBox(params.id, eventFetch);
-  const outcome = loadDetailLogic(fetchResult);
+  const outcome = _loadDetailLogic(fetchResult);
 
   if (outcome.type === 'notFound') {
     error(404, 'Box를 찾을 수 없습니다');
@@ -166,7 +166,7 @@ export const actions: Actions = {
     }
 
     const deleteResult = await deleteBoxById(params.id, eventFetch);
-    const outcome = decideDeleteOutcome(deleteResult);
+    const outcome = _decideDeleteOutcome(deleteResult);
 
     if (outcome.type === 'redirect') {
       redirect(303, '/boxes');
@@ -182,7 +182,7 @@ export const actions: Actions = {
     }
 
     const refreshResult = await refreshBoxTokens(params.id, eventFetch);
-    const outcome = decideRefreshOutcome(refreshResult);
+    const outcome = _decideRefreshOutcome(refreshResult);
 
     if (outcome.type === 'ok') {
       return { success: true, box: outcome.box };

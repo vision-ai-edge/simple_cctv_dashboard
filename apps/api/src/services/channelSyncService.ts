@@ -14,7 +14,7 @@
  *   - 자격증명 복호화는 boxService.withAuthRetry 경유
  */
 
-import type { BoxClient, ChannelStatus } from '@cctv/shared';
+import type { BoxClient, ChannelListResponse, ChannelStatus } from '@cctv/shared';
 import { decryptWithVault } from '@cctv/shared/crypto/vault';
 import { ulid } from 'ulid';
 import type { BoxServiceDeps } from './boxService';
@@ -186,16 +186,16 @@ export async function syncChannelsForBox(boxId: string, deps: BoxServiceDeps): P
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  let channelList: Awaited<ReturnType<BoxClient['channels']['list']>>;
+  let channelList!: ChannelListResponse;
   try {
-    channelList = await Promise.race([
+    channelList = (await Promise.race([
       client.channels.list(),
       new Promise<never>((_, reject) =>
         controller.signal.addEventListener('abort', () =>
           reject(new Error('Connection timeout after 10000ms')),
         ),
       ),
-    ]);
+    ])) as ChannelListResponse;
   } catch (err) {
     clearTimeout(timeoutId);
     // 실패: sync_error 기록, last_synced_at 유지

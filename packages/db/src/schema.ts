@@ -1,9 +1,11 @@
 /**
  * CCTV Dashboard 영속 스키마 (Drizzle ORM, SQLite).
  *
- * 8개 테이블:
+ * 12개 테이블:
  *   users / boxes / cameras / camera_groups /
- *   alerts / alert_rules / web_push_subs / telegram_subs
+ *   alerts / alert_rules / web_push_subs / telegram_subs /
+ *   webpush_subscriptions / alert_destinations /
+ *   detection_alerts / detection_cursor
  *
  * 규약:
  *  - PK: ULID 문자열 (`ulid` 패키지로 생성)
@@ -205,6 +207,105 @@ export const telegramSubs = sqliteTable('telegram_subs', {
 });
 
 // ---------------------------------------------------------------------------
+// webpush_subscriptions — SPEC-ALERTS-001: 웹 푸시 구독 (user 별 endpoint)
+// ---------------------------------------------------------------------------
+export const webpushSubscriptions = sqliteTable(
+  'webpush_subscriptions',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    createdAt: integer('created_at').notNull().default(nowMs),
+  },
+  (t) => ({
+    userIdx: index('webpush_subscriptions_user_idx').on(t.userId),
+    userEndpointUniq: uniqueIndex('webpush_subscriptions_user_endpoint_unique').on(
+      t.userId,
+      t.endpoint,
+    ),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// alert_destinations — SPEC-ALERTS-001: 알림 수신처 설정
+// ---------------------------------------------------------------------------
+export const alertChannelValues = ['toast', 'webpush', 'telegram'] as const;
+export type AlertChannel = (typeof alertChannelValues)[number];
+
+export const alertDestinations = sqliteTable(
+  'alert_destinations',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** 알림 채널 ('toast' | 'webpush' | 'telegram') — CHECK 제약은 마이그레이션에서 추가 */
+    channel: text('channel', { enum: alertChannelValues }).notNull(),
+    enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+    /** 채널별 추가 설정 (예: telegram chat_id) — JSON 문자열 */
+    configJson: text('config_json'),
+    createdAt: integer('created_at').notNull().default(nowMs),
+    updatedAt: integer('updated_at').notNull().default(nowMs),
+  },
+  (t) => ({
+    userChannelUniq: uniqueIndex('alert_destinations_user_channel_unique').on(t.userId, t.channel),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// detection_alerts — SPEC-ALERTS-001: AI 탐지 이벤트 기록
+// (기존 `alerts` 테이블은 camera 기반 구형 스키마 유지 — 0001_init.sql)
+// ---------------------------------------------------------------------------
+export const detectionAlertStatusValues = ['new', 'delivered'] as const;
+export type DetectionAlertStatus = (typeof detectionAlertStatusValues)[number];
+
+export const detectionAlerts = sqliteTable(
+  'detection_alerts',
+  {
+    id: text('id').primaryKey(),
+    boxId: text('box_id')
+      .notNull()
+      .references(() => boxes.id, { onDelete: 'cascade' }),
+    /** 박스 내부 채널 ID (cameras 테이블 FK 없음 — 채널이 없는 경우 허용) */
+    channelId: text('channel_id').notNull(),
+    /** 탐지 이벤트 유형 (intrusion, fall 등 — 유연한 문자열) */
+    type: text('type').notNull(),
+    /** 박스에서 수신한 원본 탐지 이벤트 JSON */
+    payloadJson: text('payload_json').notNull(),
+    /** 박스 측 탐지 발생 시각 (Unix ms) */
+    firedAt: integer('fired_at').notNull(),
+    /** 처리 상태 ('new' | 'delivered') — CHECK 제약은 마이그레이션에서 추가 */
+    status: text('status', { enum: detectionAlertStatusValues }).notNull().default('new'),
+    createdAt: integer('created_at').notNull().default(nowMs),
+  },
+  (t) => ({
+    boxChannelFiredIdx: index('detection_alerts_box_channel_fired_idx').on(
+      t.boxId,
+      t.channelId,
+      t.firedAt,
+    ),
+    statusIdx: index('detection_alerts_status_idx').on(t.status),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// detection_cursor — SPEC-ALERTS-001: 박스·채널별 탐지 조회 커서
+// ---------------------------------------------------------------------------
+export const detectionCursor = sqliteTable('detection_cursor', {
+  boxId: text('box_id')
+    .notNull()
+    .references(() => boxes.id, { onDelete: 'cascade' }),
+  channelId: text('channel_id').notNull(),
+  /** 마지막으로 처리한 탐지 이벤트의 타임스탬프 (Unix ms) */
+  lastSeenTimestamp: integer('last_seen_timestamp').notNull(),
+  updatedAt: integer('updated_at').notNull().default(nowMs),
+});
+
+// ---------------------------------------------------------------------------
 // 관계 정의 (선택적 — Drizzle relational query 용)
 // ---------------------------------------------------------------------------
 export const boxesRelations = relations(boxes, ({ many }) => ({
@@ -229,6 +330,20 @@ export const alertRulesRelations = relations(alertRules, ({ one }) => ({
 export const usersRelations = relations(users, ({ many }) => ({
   webPushSubs: many(webPushSubs),
   telegramSubs: many(telegramSubs),
+  webpushSubscriptions: many(webpushSubscriptions),
+  alertDestinations: many(alertDestinations),
+}));
+
+export const detectionAlertsRelations = relations(detectionAlerts, ({ one }) => ({
+  box: one(boxes, { fields: [detectionAlerts.boxId], references: [boxes.id] }),
+}));
+
+export const webpushSubscriptionsRelations = relations(webpushSubscriptions, ({ one }) => ({
+  user: one(users, { fields: [webpushSubscriptions.userId], references: [users.id] }),
+}));
+
+export const alertDestinationsRelations = relations(alertDestinations, ({ one }) => ({
+  user: one(users, { fields: [alertDestinations.userId], references: [users.id] }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -244,3 +359,13 @@ export type Alert = typeof alerts.$inferSelect;
 export type NewAlert = typeof alerts.$inferInsert;
 export type AlertRule = typeof alertRules.$inferSelect;
 export type NewAlertRule = typeof alertRules.$inferInsert;
+
+// SPEC-ALERTS-001 신규 타입
+export type WebpushSubscription = typeof webpushSubscriptions.$inferSelect;
+export type NewWebpushSubscription = typeof webpushSubscriptions.$inferInsert;
+export type AlertDestination = typeof alertDestinations.$inferSelect;
+export type NewAlertDestination = typeof alertDestinations.$inferInsert;
+export type DetectionAlert = typeof detectionAlerts.$inferSelect;
+export type NewDetectionAlert = typeof detectionAlerts.$inferInsert;
+export type DetectionCursor = typeof detectionCursor.$inferSelect;
+export type NewDetectionCursor = typeof detectionCursor.$inferInsert;

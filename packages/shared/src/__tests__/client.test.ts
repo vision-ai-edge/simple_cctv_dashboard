@@ -403,6 +403,60 @@ describe('system.health', () => {
 });
 
 // ---------------------------------------------------------------------------
+// M1-1/M1-2: ModelListResponseSchema characterization 테스트 (DDD PRESERVE)
+// ---------------------------------------------------------------------------
+describe('ModelListResponseSchema — characterization', () => {
+  test('[PRESERVE] bare-array 응답은 그대로 통과한다', async () => {
+    // 기존 mock/테스트가 기대하는 동작: body가 배열 그 자체일 때 정상 파싱
+    restoreFetch = installFetchMock(() => ({
+      body: [],
+    }));
+    const client = createBoxClient({ baseUrl: 'http://box.local/api', jwt: 'tok' });
+    const result = await client.models.list();
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(0);
+  });
+
+  test('[PRESERVE] bare-array 에 항목이 있으면 항목 배열을 반환한다', async () => {
+    restoreFetch = installFetchMock(() => ({
+      body: [
+        { id: 'model-1', name: 'YOLOv8n', type: 'detection' },
+        { id: 'model-2', name: 'YOLOv8s', type: 'detection', isBuiltIn: true },
+      ],
+    }));
+    const client = createBoxClient({ baseUrl: 'http://box.local/api', jwt: 'tok' });
+    const result = await client.models.list();
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(2);
+    expect(result[0]?.id).toBe('model-1');
+    expect(result[1]?.name).toBe('YOLOv8s');
+  });
+
+  test('[IMPROVE] envelope `{ success, timestamp, models: [...] }` 응답을 unwrap 한다', async () => {
+    // 실제 박스 (OpenAPI v1.3.6) 응답 모양:
+    //   { success: true, timestamp: ..., models: [...] }
+    // M1-2 수정 전: 이 테스트는 FAIL (ModelListResponseSchema가 배열만 허용)
+    // M1-2 수정 후: PASS (z.preprocess로 models 필드 unwrap)
+    restoreFetch = installFetchMock(() => ({
+      body: {
+        success: true,
+        timestamp: 1748000000000,
+        models: [
+          { id: 'm-001', name: 'Intrusion Detection v2', type: 'detection', isBuiltIn: false },
+          { id: 'm-002', name: 'Fall Detection v1', type: 'detection', isBuiltIn: true },
+        ],
+      },
+    }));
+    const client = createBoxClient({ baseUrl: 'http://box.local/api', jwt: 'tok' });
+    const result = await client.models.list();
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(2);
+    expect(result[0]?.id).toBe('m-001');
+    expect(result[1]?.name).toBe('Fall Detection v1');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 정적 상수
 // ---------------------------------------------------------------------------
 describe('BoxClient.ChannelStatus', () => {

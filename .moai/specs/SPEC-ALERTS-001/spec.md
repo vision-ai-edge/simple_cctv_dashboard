@@ -97,20 +97,23 @@ CREATE UNIQUE INDEX idx_alert_destinations_user_channel
   ON alert_destinations(user_id, channel);
 ```
 
-### `alerts` 테이블
+### `detection_alerts` 테이블
+
+> 명칭 변경 사유: 기존 `0001_init.sql` 의 `alerts` 테이블 (camera_id 기반 구형) 과 충돌 회피.
+> 신규 box_id 기반 테이블은 `detection_alerts` 로 명명한다.
 
 ```sql
-CREATE TABLE alerts (
+CREATE TABLE detection_alerts (
   id           TEXT PRIMARY KEY,         -- ULID
-  channel_id   TEXT,                     -- cameras.id (nullable: 박스 레벨 알림 대비)
+  channel_id   TEXT,                     -- box 측 channel id (nullable: 박스 레벨 알림 대비)
   box_id       TEXT NOT NULL,            -- boxes.id
   type         TEXT NOT NULL,            -- 예: 'intrusion', 'fall', 'unknown'
   payload_json TEXT NOT NULL,            -- 원본 detection 이벤트 JSON
   fired_at     INTEGER NOT NULL,         -- Unix ms (detection timestamp 기준)
   status       TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new', 'delivered'))
 );
-CREATE INDEX idx_alerts_fired_at ON alerts(fired_at DESC);
-CREATE INDEX idx_alerts_box_channel ON alerts(box_id, channel_id);
+CREATE INDEX idx_detection_alerts_fired_at ON detection_alerts(fired_at DESC);
+CREATE INDEX idx_detection_alerts_box_channel ON detection_alerts(box_id, channel_id);
 ```
 
 ### `detection_cursor` 테이블
@@ -154,7 +157,7 @@ CREATE TABLE detection_cursor (
 
 #### REQ-ALERT-003: 알림 이벤트 DB 저장
 
-**[Event-Driven]** WHEN 신규 detection 이벤트가 감지되면 THEN 시스템은 `alerts` 테이블에 해당 이벤트를 `status='new'` 로 저장해야 한다.
+**[Event-Driven]** WHEN 신규 detection 이벤트가 감지되면 THEN 시스템은 `detection_alerts` 테이블에 해당 이벤트를 `status='new'` 로 저장해야 한다.
 
 **[Ubiquitous]** 알림 히스토리는 최근 1,000건을 유지한다. 초과 시 가장 오래된 항목부터 삭제한다.
 

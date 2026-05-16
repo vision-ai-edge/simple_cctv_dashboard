@@ -29,7 +29,7 @@
 - M1-1: `ModelListResponseSchema` characterization 테스트 작성 (DDD PRESERVE)
 - M1-2: `ModelListResponseSchema` envelope 버그 수정 (`{ success, models: [...] }` unwrap)
 - M1-3: DB 마이그레이션 0006 작성 및 적용 (4개 신규 테이블)
-  - `webpush_subscriptions`, `alert_destinations`, `alerts`, `detection_cursor`
+  - `webpush_subscriptions`, `alert_destinations`, `detection_alerts`, `detection_cursor`
 - M1-4: Drizzle ORM 스키마 및 타입 정의 추가
 - M1-5: 마이그레이션 통합 테스트
 
@@ -45,7 +45,7 @@
 - M2-1: `detectionPoller.ts` 서비스 (TDD)
   - 활성 박스·채널 조회 → `visionAi.getDetections()` 호출
   - `detection_cursor` 기반 신규 이벤트 필터링
-  - `alerts` 테이블 저장 + 히스토리 1,000건 트리밍
+  - `detection_alerts` 테이블 저장 + 히스토리 1,000건 트리밍
   - 오류 격리 (채널 단위 try/catch)
 - M2-2: `alertDispatcher.ts` 서비스 (TDD)
   - SSE 클라이언트 레지스트리 관리
@@ -133,7 +133,7 @@
         │
         ├─→ detection_cursor 비교 (신규 이벤트만)
         │
-        ├─→ alerts 테이블 저장
+        ├─→ detection_alerts 테이블 저장
         │
         └─→ alertDispatcher.dispatch(alert)
                 ├─→ SSE 브로드캐스트 (활성 연결 사용자)

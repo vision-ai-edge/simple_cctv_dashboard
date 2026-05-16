@@ -10,6 +10,7 @@ import type { Logger } from './logger';
 import { createCorsMiddleware } from './middleware/corsHandler';
 import { createAuthRoutes } from './routes/auth';
 import { createBoxRoutes } from './routes/boxes';
+import { createCameraRoutes } from './routes/cameras';
 import { healthRoute } from './routes/health';
 
 export interface CreateAppOptions {
@@ -56,6 +57,12 @@ export function createApp(opts: CreateAppOptions): Hono {
         }),
       );
     }
+
+    // SPEC-DASHBOARD-001: 카메라 집계 라우트 마운트 (REQ-DASH-002)
+    app.route(
+      '/api/cameras',
+      createCameraRoutes({ db: opts.db, jwtSecret: opts.jwtSecret }),
+    );
   }
 
   // 글로벌 404

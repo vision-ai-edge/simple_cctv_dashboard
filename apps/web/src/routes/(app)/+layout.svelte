@@ -18,6 +18,9 @@ const { data, children }: { data: LayoutData; children: import('svelte').Snippet
         <h1 class="text-lg font-semibold text-slate-900">CCTV Dashboard</h1>
         <!-- 박스 관리 네비게이션 링크 (REQ-UI-5) -->
         <nav class="flex items-center gap-4">
+          <!-- REQ-DASH-011: 대시보드 및 멀티뷰 내비게이션 링크 추가 -->
+          <a href="/dashboard" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">대시보드</a>
+          <a href="/dashboard/grid" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">멀티뷰</a>
           <a href="/boxes" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">박스 관리</a>
         </nav>
       </div>

@@ -2,7 +2,7 @@
  * /(app)/boxes 목록 페이지 서버 로드 함수.
  *
  * 서버 사이드에서 GET /api/boxes를 호출하여 Box 목록을 반환한다.
- * event.fetch를 사용하여 SvelteKit Vite 프록시를 통해 API를 호출한다.
+ * event.fetch를 사용하여 SvelteKit API catch-all 을 통해 Hono 앱을 호출한다.
  *
  * 인증 가드는 (app)/+layout.server.ts에서 처리하므로,
  * 이 파일은 event.locals.user가 반드시 존재한다고 가정한다.

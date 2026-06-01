@@ -16,7 +16,7 @@ export interface DestinationConfig {
 /**
  * destinations 응답을 파싱한다 (순수 함수 — 테스트 가능).
  */
-export function parseDestinationsResponse(
+function parseDestinationsResponse(
   body: unknown,
 ): { ok: true; destinations: DestinationConfig[] } | { ok: false; error: string } {
   if (
@@ -42,7 +42,10 @@ export const load: PageServerLoad = async ({ fetch: eventFetch, locals }) => {
   try {
     const res = await eventFetch('/api/alerts/destinations');
     if (!res.ok) {
-      return { destinations: [], loadError: `알림 설정을 불러오지 못했습니다 (HTTP ${res.status})` };
+      return {
+        destinations: [],
+        loadError: `알림 설정을 불러오지 못했습니다 (HTTP ${res.status})`,
+      };
     }
     const body = (await res.json()) as unknown;
     const parsed = parseDestinationsResponse(body);

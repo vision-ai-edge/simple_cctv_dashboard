@@ -16,7 +16,7 @@
 
 import type { Db } from '@cctv/db';
 import { BoxApiError, type BoxClient } from '@cctv/shared';
-import { decryptWithVault, encryptWithVault } from '@cctv/shared/crypto/vault';
+import { decryptWithVault, encryptWithVault } from '@cctv/shared';
 import { ulid } from 'ulid';
 
 // ---------------------------------------------------------------------------

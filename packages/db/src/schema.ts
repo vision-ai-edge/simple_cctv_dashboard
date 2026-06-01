@@ -100,6 +100,8 @@ export const cameras = sqliteTable(
     name: text('name').notNull(),
     latitude: real('latitude'),
     longitude: real('longitude'),
+    /** 주변에서 감지된 BLE 비컨 신호 개수 */
+    bleBeaconCount: integer('ble_beacon_count').notNull().default(0),
     resolution: text('resolution'),
     streamUrl: text('stream_url'),
     status: text('status', { enum: cameraStatusValues }).notNull().default('offline'),

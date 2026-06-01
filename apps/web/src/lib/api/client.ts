@@ -1,7 +1,7 @@
 /**
  * CCTV Dashboard 백엔드 API 호출용 경량 클라이언트.
  *
- * 개발 환경에서는 Vite 프록시(`/api` -> `http://localhost:3000`)를 거치며,
+ * 개발/운영 환경에서는 SvelteKit `/api` catch-all 이 in-process Hono 앱을 호출하며,
  * 빌드 후 동일 오리진 배포에서도 동일한 경로가 유효하다.
  */
 

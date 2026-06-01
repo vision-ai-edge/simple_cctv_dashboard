@@ -36,7 +36,7 @@ cp .env.example .env
 DATABASE_PATH="$PWD/data/cctv.sqlite" bun run db:migrate
 ADMIN_USERNAME=admin ADMIN_PASSWORD=change-me DATABASE_PATH="$PWD/data/cctv.sqlite" bun run db:seed
 
-# 4) 개발 서버 동시 실행 (API: :3000, Web: :5173)
+# 4) 개발 서버 실행 (Web: :5173, API: :3000, 브라우저는 Web /api만 사용)
 DATABASE_PATH="$PWD/data/cctv.sqlite" bun run dev
 ```
 
@@ -45,7 +45,7 @@ DATABASE_PATH="$PWD/data/cctv.sqlite" bun run dev
 ### 헬스 체크
 
 ```bash
-curl http://localhost:3000/api/health
+curl http://localhost:5173/api/health
 # {"ok":true,"version":"0.1.0"}
 ```
 
@@ -136,7 +136,8 @@ simple_cctv_dashboard/
 
 | 스크립트 | 설명 |
 |----------|------|
-| `bun run dev` | api + web 동시 개발 서버 (concurrently) |
+| `bun run dev` | api + web 개발 서버. 브라우저/API 호출은 Web `/api`로 통일 |
+| `bun run dev:web` | web 서버 단독 실행 (외부 API는 `API_URL`로 지정) |
 | `bun run build` | 모든 워크스페이스 빌드 |
 | `bun run lint` | Biome 린트 검사 |
 | `bun run format` | Biome 포맷 자동 적용 |
@@ -160,7 +161,6 @@ simple_cctv_dashboard/
 | `API_PORT` | 선택 | API 서버 포트 (기본 3000) |
 | `NODE_ENV` | 선택 | `development` / `test` / `production` |
 | `JWT_SECRET` | **필수** | JWT 서명 키 — **32바이트 이상 필수** (`openssl rand -base64 48` 권장). 서버 시작 시 검증, 미충족 시 종료 |
-| `INTERNAL_API_URL` | 선택 | SvelteKit hooks 가 호출하는 내부 API URL (기본 `http://localhost:3000`) |
 | `BOX_VAULT_KEY` | **필수 (SPEC-BOX-001)** | Box 자격증명 암호화 키 — **32바이트 hex (64자 필수)** (`openssl rand -hex 32` 권장). 서버 시작 시 검증, 미충족 시 종료 |
 | `BOX_STATUS_POLL_INTERVAL_MS` | 선택 | Box 상태 폴링 주기 (밀리초, 기본 60000 = 60초) — SPEC-BOX-001 |
 | `ADMIN_USERNAME` | 시드 시 | 기본 관리자 사용자명 |

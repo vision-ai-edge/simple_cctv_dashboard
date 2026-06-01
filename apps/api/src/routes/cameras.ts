@@ -26,7 +26,7 @@ import { createRequireAuth } from '../middleware/requireAuth';
  *
  * REQ-DASH-002 응답 스키마:
  *   id, channelId, name, status, latitude, longitude,
- *   boxId, boxName, boxStatus, lastSyncedAt
+ *   bleBeaconCount, boxId, boxName, boxStatus, lastSyncedAt
  *
  * 절대 포함하지 않는 컬럼 (REQ-DASH-013):
  *   password_enc, jwt_cached_enc, api_key_cached_enc,
@@ -39,6 +39,7 @@ export type CameraWithBox = {
   status: 'online' | 'offline' | 'error';
   latitude: number | null;
   longitude: number | null;
+  bleBeaconCount: number;
   lastSyncedAt: number | null;
   boxId: string;
   boxName: string;
@@ -56,6 +57,7 @@ type CameraWithBoxRow = {
   status: string;
   latitude: number | null;
   longitude: number | null;
+  bleBeaconCount: number | null;
   lastSyncedAt: number | null;
   boxId: string;
   boxName: string;
@@ -109,7 +111,7 @@ export function createCameraRoutes(opts: CreateCameraRoutesOptions): Hono {
   //
   // cameras LEFT JOIN boxes on cameras.box_id = boxes.id
   // 반환 필드: id, channelId, name, status, latitude, longitude,
-  //            lastSyncedAt, boxId, boxName, boxStatus
+  //            bleBeaconCount, lastSyncedAt, boxId, boxName, boxStatus
   //
   // 보안: password_enc, jwt_cached_enc, api_key_cached_enc 미포함 (REQ-DASH-013)
   // -------------------------------------------------------------------------
@@ -123,6 +125,7 @@ export function createCameraRoutes(opts: CreateCameraRoutesOptions): Hono {
            c.status      AS status,
            c.latitude    AS latitude,
            c.longitude   AS longitude,
+           c.ble_beacon_count AS bleBeaconCount,
            c.last_synced_at AS lastSyncedAt,
            b.id          AS boxId,
            b.name        AS boxName,
@@ -140,6 +143,7 @@ export function createCameraRoutes(opts: CreateCameraRoutesOptions): Hono {
       status: row.status as CameraWithBox['status'],
       latitude: row.latitude,
       longitude: row.longitude,
+      bleBeaconCount: row.bleBeaconCount ?? 0,
       lastSyncedAt: row.lastSyncedAt,
       boxId: row.boxId,
       boxName: row.boxName,

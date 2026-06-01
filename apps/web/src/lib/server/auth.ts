@@ -9,6 +9,8 @@
  * hooks 에서 사용하면 무한 재귀가 발생한다.
  */
 
+import { getApiUpstreamUrl } from './apiUrl';
+
 /** /api/auth/me 응답 바디 타입 */
 interface MeResponseBody {
   success: boolean;
@@ -28,12 +30,6 @@ export type AuthUser = {
 };
 
 /**
- * API 서버 내부 URL. 환경 변수로 오버라이드 가능.
- * 프로덕션에서는 동일 reverse proxy 뒤의 내부 호스트를 가리키도록 설정한다.
- */
-const INTERNAL_API_URL = process.env.INTERNAL_API_URL ?? 'http://localhost:3000';
-
-/**
  * access_token 을 사용하여 API 서버의 /api/auth/me 를 호출, 사용자 정보를 조회한다.
  *
  * - token 이 비어 있으면 null 반환
@@ -50,7 +46,7 @@ export async function getCurrentUser(token: string): Promise<AuthUser | null> {
   }
 
   try {
-    const response = await fetch(`${INTERNAL_API_URL}/api/auth/me`, {
+    const response = await fetch(`${getApiUpstreamUrl()}/api/auth/me`, {
       method: 'GET',
       headers: {
         Cookie: `access_token=${token}`,

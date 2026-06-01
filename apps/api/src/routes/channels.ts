@@ -19,7 +19,7 @@
  */
 
 import type { BoxClient } from '@cctv/shared';
-import { decryptWithVault } from '@cctv/shared/crypto/vault';
+import { decryptWithVault } from '@cctv/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { createRequireAuth } from '../middleware/requireAuth';

@@ -15,7 +15,7 @@
  */
 
 import type { BoxClient, ChannelListResponse, ChannelStatus } from '@cctv/shared';
-import { decryptWithVault } from '@cctv/shared/crypto/vault';
+import { decryptWithVault } from '@cctv/shared';
 import { ulid } from 'ulid';
 import type { BoxServiceDeps } from './boxService';
 import { BoxNotFoundError, queryCredentialRow } from './boxService';
@@ -42,6 +42,11 @@ type CameraRow = {
   channelId: string;
   status: string;
   lastSyncedAt: number | null;
+};
+
+type GpsCoordinates = {
+  latitude: number;
+  longitude: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -124,6 +129,155 @@ export function sanitizeErrorMessage(message: string, sensitiveStrings: string[]
   return sanitized;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function parseFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function readNumberField(record: Record<string, unknown>, keys: string[]): number | null {
+  for (const key of keys) {
+    const parsed = parseFiniteNumber(record[key]);
+    if (parsed != null) return parsed;
+  }
+  return null;
+}
+
+function validCoordinates(
+  latitude: number | null,
+  longitude: number | null,
+): GpsCoordinates | null {
+  if (latitude == null || longitude == null) return null;
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+  return { latitude, longitude };
+}
+
+/**
+ * EdgeAI Box 채널 응답에서 카메라 GPS 좌표를 추출한다.
+ *
+ * 박스 펌웨어/설정별 필드 차이를 흡수하기 위해 최상위, gps/location 객체,
+ * config.gps/config.location 객체를 순서대로 확인한다.
+ */
+export function extractGpsCoordinates(channel: unknown): GpsCoordinates | null {
+  const root = asRecord(channel);
+  if (!root) return null;
+
+  const direct = validCoordinates(
+    readNumberField(root, ['latitude', 'lat']),
+    readNumberField(root, ['longitude', 'lng', 'lon']),
+  );
+  if (direct) return direct;
+
+  for (const containerKey of ['gps', 'location']) {
+    const container = asRecord(root[containerKey]);
+    if (!container) continue;
+    const nested = validCoordinates(
+      readNumberField(container, ['latitude', 'lat']),
+      readNumberField(container, ['longitude', 'lng', 'lon']),
+    );
+    if (nested) return nested;
+  }
+
+  const config = asRecord(root.config);
+  if (!config) return null;
+
+  const configDirect = validCoordinates(
+    readNumberField(config, ['latitude', 'lat']),
+    readNumberField(config, ['longitude', 'lng', 'lon']),
+  );
+  if (configDirect) return configDirect;
+
+  for (const containerKey of ['gps', 'location']) {
+    const container = asRecord(config[containerKey]);
+    if (!container) continue;
+    const nested = validCoordinates(
+      readNumberField(container, ['latitude', 'lat']),
+      readNumberField(container, ['longitude', 'lng', 'lon']),
+    );
+    if (nested) return nested;
+  }
+
+  return null;
+}
+
+/**
+ * EdgeAI Box 채널 응답에서 주변 BLE 비컨 신호 개수를 추출한다.
+ *
+ * count 필드가 있으면 우선 사용하고, beacons/devices/signals 배열만 있으면
+ * 배열 길이를 신호 개수로 사용한다.
+ */
+export function extractBleBeaconCount(channel: unknown): number | null {
+  const root = asRecord(channel);
+  if (!root) return null;
+
+  for (const source of [
+    root,
+    asRecord(root.ble),
+    asRecord(root.bluetooth),
+    asRecord(root.config),
+  ]) {
+    if (!source) continue;
+    const explicitCount = readNumberField(source, [
+      'bleBeaconCount',
+      'beaconCount',
+      'bleCount',
+      'deviceCount',
+      'count',
+    ]);
+    if (explicitCount != null) return Math.max(0, Math.floor(explicitCount));
+
+    for (const key of ['bleBeacons', 'beacons', 'devices', 'signals']) {
+      const value = source[key];
+      if (Array.isArray(value)) return value.length;
+    }
+  }
+
+  return null;
+}
+
+async function readBoxGpsCoordinates(client: BoxClient): Promise<GpsCoordinates | null> {
+  try {
+    const connectivity = (
+      client as unknown as {
+        connectivity?: { getLocationPosition?: () => Promise<unknown> };
+      }
+    ).connectivity;
+    const position = await connectivity?.getLocationPosition?.();
+    return extractGpsCoordinates(position);
+  } catch {
+    return null;
+  }
+}
+
+async function readBoxBleBeaconCount(client: BoxClient): Promise<number | null> {
+  try {
+    const connectivity = (
+      client as unknown as {
+        connectivity?: {
+          getBleStatus?: () => Promise<unknown>;
+          getBleDevices?: () => Promise<unknown>;
+        };
+      }
+    ).connectivity;
+
+    const status = await connectivity?.getBleStatus?.();
+    const statusCount = extractBleBeaconCount(status);
+    if (statusCount != null) return statusCount;
+
+    const devices = await connectivity?.getBleDevices?.();
+    return extractBleBeaconCount(devices);
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 공개 API
 // ---------------------------------------------------------------------------
@@ -187,6 +341,8 @@ export async function syncChannelsForBox(boxId: string, deps: BoxServiceDeps): P
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
   let channelList!: ChannelListResponse;
+  const boxGps = await readBoxGpsCoordinates(client);
+  const boxBleBeaconCount = await readBoxBleBeaconCount(client);
   try {
     channelList = (await Promise.race([
       client.channels.list(),
@@ -249,6 +405,8 @@ export async function syncChannelsForBox(boxId: string, deps: BoxServiceDeps): P
       for (const ch of channelList) {
         const cameraStatus = ch.status ? mapChannelStatus(ch.status) : 'offline';
         const existing = existingMap.get(ch.id);
+        const gps = extractGpsCoordinates(ch) ?? boxGps;
+        const bleBeaconCount = extractBleBeaconCount(ch) ?? boxBleBeaconCount;
 
         if (existing) {
           // UPDATE 기존 채널
@@ -256,6 +414,9 @@ export async function syncChannelsForBox(boxId: string, deps: BoxServiceDeps): P
             .prepare(
               `UPDATE cameras
                SET name = ?, status = ?, resolution = ?, stream_url = ?,
+                   latitude = COALESCE(?, latitude),
+                   longitude = COALESCE(?, longitude),
+                   ble_beacon_count = COALESCE(?, ble_beacon_count),
                    last_synced_at = ?, sync_error = NULL, updated_at = ?
                WHERE box_id = ? AND channel_id = ?`,
             )
@@ -264,6 +425,9 @@ export async function syncChannelsForBox(boxId: string, deps: BoxServiceDeps): P
               cameraStatus,
               ((ch as Record<string, unknown>).resolution as string) ?? null,
               ((ch as Record<string, unknown>).rtspUrl as string) ?? null,
+              gps?.latitude ?? null,
+              gps?.longitude ?? null,
+              bleBeaconCount,
               now,
               now,
               boxId,
@@ -276,8 +440,9 @@ export async function syncChannelsForBox(boxId: string, deps: BoxServiceDeps): P
             .prepare(
               `INSERT INTO cameras
                  (id, box_id, channel_id, name, status, resolution, stream_url,
+                  latitude, longitude, ble_beacon_count,
                   last_synced_at, sync_error, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
             )
             .run(
               newId,
@@ -287,6 +452,9 @@ export async function syncChannelsForBox(boxId: string, deps: BoxServiceDeps): P
               cameraStatus,
               ((ch as Record<string, unknown>).resolution as string) ?? null,
               ((ch as Record<string, unknown>).rtspUrl as string) ?? null,
+              gps?.latitude ?? null,
+              gps?.longitude ?? null,
+              bleBeaconCount ?? 0,
               now,
               now,
               now,

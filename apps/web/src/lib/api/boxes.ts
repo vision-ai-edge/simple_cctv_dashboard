@@ -4,9 +4,8 @@
  * 서버 사이드(+page.server.ts)와 클라이언트 사이드(폴링) 모두에서 사용한다.
  * FetchLike 인터페이스를 통해 event.fetch(서버) 또는 window.fetch(클라이언트)를 주입받는다.
  *
- * 중요: 이 파일은 INTERNAL_API_URL을 사용하지 않는다.
  * +page.server.ts에서는 event.fetch('/api/...')를 사용하며,
- * SvelteKit이 Vite 프록시를 통해 라우팅한다.
+ * SvelteKit API catch-all 이 API 서버로 전달한다. 브라우저에는 같은 오리진 `/api`만 노출된다.
  */
 
 /** fetch 함수 타입 (서버의 event.fetch 또는 클라이언트의 window.fetch) */

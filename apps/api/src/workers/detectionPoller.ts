@@ -18,7 +18,7 @@
 
 import type { Db } from '@cctv/db';
 import type { BoxClient } from '@cctv/shared';
-import { decryptWithVault } from '@cctv/shared/crypto/vault';
+import { decryptWithVault } from '@cctv/shared';
 import { ulid } from 'ulid';
 import type { AlertDispatcher } from '../services/alertDispatcher';
 

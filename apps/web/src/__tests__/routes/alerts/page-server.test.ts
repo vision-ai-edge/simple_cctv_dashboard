@@ -27,20 +27,26 @@ interface AlertPagination {
 
 // --- 순수 함수 복제 ---
 
-function parseAlertsResponse(body: unknown): {
-  ok: true;
-  alerts: AlertRecord[];
-  pagination: AlertPagination;
-} | { ok: false; error: string } {
+function parseAlertsResponse(body: unknown):
+  | {
+      ok: true;
+      alerts: AlertRecord[];
+      pagination: AlertPagination;
+    }
+  | { ok: false; error: string } {
   if (typeof body !== 'object' || body === null) {
     return { ok: false, error: '응답 파싱 오류' };
   }
   const obj = body as Record<string, unknown>;
   const alerts = Array.isArray(obj.alerts) ? (obj.alerts as AlertRecord[]) : [];
+  const rawPagination =
+    typeof obj.pagination === 'object' && obj.pagination !== null
+      ? (obj.pagination as Record<string, unknown>)
+      : obj;
   const pagination: AlertPagination = {
-    total: typeof obj.total === 'number' ? obj.total : 0,
-    limit: typeof obj.limit === 'number' ? obj.limit : 50,
-    offset: typeof obj.offset === 'number' ? obj.offset : 0,
+    total: typeof rawPagination.total === 'number' ? rawPagination.total : 0,
+    limit: typeof rawPagination.limit === 'number' ? rawPagination.limit : 50,
+    offset: typeof rawPagination.offset === 'number' ? rawPagination.offset : 0,
   };
   return { ok: true, alerts, pagination };
 }
@@ -83,6 +89,19 @@ describe('parseAlertsResponse', () => {
     if (result.ok) {
       expect(result.alerts).toHaveLength(0);
       expect(result.pagination.total).toBe(0);
+    }
+  });
+
+  it('pagination 객체가 있는 API 응답을 파싱한다', () => {
+    const body = {
+      alerts: [mockAlert],
+      pagination: { total: 7, limit: 50, offset: 0, hasMore: false },
+    };
+    const result = parseAlertsResponse(body);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.pagination.total).toBe(7);
+      expect(result.pagination.limit).toBe(50);
     }
   });
 

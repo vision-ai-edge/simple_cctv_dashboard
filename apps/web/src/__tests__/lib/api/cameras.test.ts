@@ -28,6 +28,7 @@ const makeCamera = (overrides: Partial<CameraWithBox> = {}): CameraWithBox => ({
   status: 'online',
   latitude: 37.5665,
   longitude: 126.978,
+  bleBeaconCount: 0,
   lastSyncedAt: Date.now(),
   boxId: 'box-001',
   boxName: 'Box A',

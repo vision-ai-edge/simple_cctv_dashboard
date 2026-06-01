@@ -26,20 +26,26 @@ export interface AlertPagination {
 /**
  * 알림 히스토리 응답을 파싱한다 (순수 함수 — 테스트 가능).
  */
-export function parseAlertsResponse(body: unknown): {
-  ok: true;
-  alerts: AlertRecord[];
-  pagination: AlertPagination;
-} | { ok: false; error: string } {
+function parseAlertsResponse(body: unknown):
+  | {
+      ok: true;
+      alerts: AlertRecord[];
+      pagination: AlertPagination;
+    }
+  | { ok: false; error: string } {
   if (typeof body !== 'object' || body === null) {
     return { ok: false, error: '응답 파싱 오류' };
   }
   const obj = body as Record<string, unknown>;
   const alerts = Array.isArray(obj.alerts) ? (obj.alerts as AlertRecord[]) : [];
+  const rawPagination =
+    typeof obj.pagination === 'object' && obj.pagination !== null
+      ? (obj.pagination as Record<string, unknown>)
+      : obj;
   const pagination: AlertPagination = {
-    total: typeof obj.total === 'number' ? obj.total : 0,
-    limit: typeof obj.limit === 'number' ? obj.limit : 50,
-    offset: typeof obj.offset === 'number' ? obj.offset : 0,
+    total: typeof rawPagination.total === 'number' ? rawPagination.total : 0,
+    limit: typeof rawPagination.limit === 'number' ? rawPagination.limit : 50,
+    offset: typeof rawPagination.offset === 'number' ? rawPagination.offset : 0,
   };
   return { ok: true, alerts, pagination };
 }

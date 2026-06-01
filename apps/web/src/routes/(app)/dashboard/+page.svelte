@@ -8,9 +8,10 @@
  * - "멀티뷰 보기" 링크 → /dashboard/grid (REQ-DASH-011).
  */
 
-import { partitionCameras } from '$lib/api/cameras';
+import { fetchCameras, partitionCameras } from '$lib/api/cameras';
 import CameraMap from '$lib/components/dashboard/CameraMap.svelte';
 import NoCoordSidebar from '$lib/components/dashboard/NoCoordSidebar.svelte';
+import { onMount } from 'svelte';
 import type { PageData } from './$types';
 
 // ---------------------------------------------------------------------------
@@ -18,12 +19,31 @@ import type { PageData } from './$types';
 // ---------------------------------------------------------------------------
 
 const { data }: { data: PageData } = $props();
+let refreshedCameras = $state<PageData['cameras'] | null>(null);
+let cameraRefreshKey = $state(0);
 
 // ---------------------------------------------------------------------------
 // Derived: 좌표 보유 / 좌표 없음 분리 (REQ-DASH-004, REQ-DASH-006)
 // ---------------------------------------------------------------------------
 
-const { geocoded, noCoord } = $derived(partitionCameras(data.cameras));
+const cameras = $derived(refreshedCameras ?? data.cameras);
+const { geocoded, noCoord } = $derived(partitionCameras(cameras));
+
+async function refreshCameras(): Promise<void> {
+  const result = await fetchCameras(globalThis.fetch);
+  if (!result.ok) return;
+
+  refreshedCameras = result.cameras;
+  cameraRefreshKey += 1;
+}
+
+onMount(() => {
+  const interval = window.setInterval(() => {
+    void refreshCameras();
+  }, 30_000);
+
+  return () => window.clearInterval(interval);
+});
 </script>
 
 <div class="space-y-4">
@@ -41,13 +61,15 @@ const { geocoded, noCoord } = $derived(partitionCameras(data.cameras));
   <!-- 지도 + 사이드바 컨테이너 (relative: 사이드바 오버레이 기준점) -->
   <div class="relative w-full" style="height: 600px;">
     <!-- Leaflet 지도 (REQ-DASH-003, REQ-DASH-004, REQ-DASH-005) -->
-    <CameraMap cameras={geocoded} />
+    {#key cameraRefreshKey}
+      <CameraMap cameras={geocoded} />
+    {/key}
 
     <!-- 좌표 없는 카메라 사이드바 (REQ-DASH-006, D4) -->
     <NoCoordSidebar cameras={noCoord} />
   </div>
 
-  {#if data.cameras.length === 0}
+  {#if cameras.length === 0}
     <!-- 카메라 없음 안내 -->
     <div class="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
       등록된 카메라가 없습니다. 박스를 등록하고 채널을 동기화하세요.

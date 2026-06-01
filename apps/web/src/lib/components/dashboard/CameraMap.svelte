@@ -10,9 +10,9 @@
  * - onDestroy: map.remove() 로 메모리 누수 방지 (REQ-DASH-003).
  */
 
-import { onMount, onDestroy } from 'svelte';
-import type { CameraWithBox } from '$lib/types/dashboard';
 import { getMarkerColor } from '$lib/api/cameras';
+import type { CameraWithBox } from '$lib/types/dashboard';
+import { onDestroy, onMount } from 'svelte';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -29,6 +29,7 @@ const { cameras }: Props = $props();
 // State
 // ---------------------------------------------------------------------------
 
+// biome-ignore lint/style/useConst: bind:this가 DOM 노드를 할당해야 하므로 let 유지
 let mapContainer = $state<HTMLDivElement | null>(null);
 // biome-ignore lint/suspicious/noExplicitAny: Leaflet 타입은 동적 import 이후에 확정됨
 let mapInstance: any = null;
@@ -67,30 +68,42 @@ onMount(async () => {
 
       const color = getMarkerColor(cam.status);
 
-      // divIcon: 상태 색상을 반영한 원형 마커 (REQ-DASH-004)
+      const bleCount = cam.bleBeaconCount ?? 0;
+
+      // divIcon: 상태 색상과 BLE 비컨 개수를 함께 반영한 마커
       const icon = L.divIcon({
         className: '',
         html: `<div style="
-          width:16px;height:16px;border-radius:50%;
+          position:relative;width:22px;height:22px;border-radius:50%;
           background:${color};border:2px solid white;
-          box-shadow:0 1px 4px rgba(0,0,0,0.4);
-        "></div>`,
-        iconSize: [16, 16],
-        iconAnchor: [8, 8],
+          box-shadow:0 2px 8px rgba(15,23,42,0.35);
+        ">
+          <span style="
+            position:absolute;right:-10px;top:-10px;min-width:18px;height:18px;
+            padding:0 4px;border-radius:9999px;background:#0f172a;color:white;
+            border:2px solid white;font-size:10px;font-weight:700;line-height:14px;
+            text-align:center;box-sizing:border-box;
+          ">${bleCount}</span>
+        </div>`,
+        iconSize: [34, 34],
+        iconAnchor: [11, 11],
         popupAnchor: [0, -10],
       });
 
       const marker = L.marker([cam.latitude, cam.longitude], { icon });
 
       // 팝업 내용 (REQ-DASH-005): 채널명, Box명, 상태, 상세 보기 링크
-      const statusLabel = cam.status === 'online' ? '온라인' : cam.status === 'offline' ? '오프라인' : '오류';
-      const statusColor = cam.status === 'online' ? '#16a34a' : cam.status === 'error' ? '#dc2626' : '#6b7280';
+      const statusLabel =
+        cam.status === 'online' ? '온라인' : cam.status === 'offline' ? '오프라인' : '오류';
+      const statusColor =
+        cam.status === 'online' ? '#16a34a' : cam.status === 'error' ? '#dc2626' : '#6b7280';
       const detailUrl = `/boxes/${cam.boxId}`;
 
       marker.bindPopup(`
         <div style="min-width:160px;font-family:inherit;font-size:13px;line-height:1.5">
           <div style="font-weight:600;margin-bottom:4px">${escapeHtml(cam.name)}</div>
           <div style="color:#64748b;margin-bottom:4px">${escapeHtml(cam.boxName)}</div>
+          <div style="color:#334155;margin-bottom:6px">BLE 비컨 ${bleCount}개 감지</div>
           <div style="margin-bottom:8px">
             <span style="
               display:inline-block;padding:1px 8px;border-radius:9999px;

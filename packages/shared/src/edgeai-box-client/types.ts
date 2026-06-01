@@ -157,6 +157,47 @@ export type ChannelUpdateRequest = z.infer<typeof ChannelUpdateRequestSchema>;
 export type ChannelListResponse = z.infer<typeof ChannelListResponseSchema>;
 
 // ---------------------------------------------------------------------------
+// connectivity (location / bluetooth BLE)
+// ---------------------------------------------------------------------------
+
+export const LocationPositionResponseSchema = z
+  .object({
+    latitude: z.number(),
+    longitude: z.number(),
+    altitude: z.number().optional(),
+    accuracy: z.number().optional(),
+    bearing: z.number().optional(),
+    speed: z.number().optional(),
+    provider: z.string().optional(),
+    timestamp: z.number().optional(),
+  })
+  .passthrough();
+
+export const BleStatusResponseSchema = z
+  .object({
+    success: z.boolean().optional(),
+    scanning: z.boolean().optional(),
+    bluetoothEnabled: z.boolean().optional(),
+    deviceCount: z.number().int().nonnegative().optional(),
+    timestamp: z.number().optional(),
+  })
+  .passthrough();
+
+export const BleDevicesResponseSchema = z
+  .object({
+    success: z.boolean().optional(),
+    scanning: z.boolean().optional(),
+    deviceCount: z.number().int().nonnegative().optional(),
+    devices: z.array(z.record(z.unknown())).optional(),
+    timestamp: z.number().optional(),
+  })
+  .passthrough();
+
+export type LocationPositionResponse = z.infer<typeof LocationPositionResponseSchema>;
+export type BleStatusResponse = z.infer<typeof BleStatusResponseSchema>;
+export type BleDevicesResponse = z.infer<typeof BleDevicesResponseSchema>;
+
+// ---------------------------------------------------------------------------
 // models / vision-ai
 // ---------------------------------------------------------------------------
 

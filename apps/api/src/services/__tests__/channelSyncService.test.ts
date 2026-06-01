@@ -18,6 +18,8 @@ import { encryptWithVault } from '@cctv/shared/crypto/vault';
 import type { BoxServiceDeps } from '../boxService';
 import {
   acquireSyncLock,
+  extractBleBeaconCount,
+  extractGpsCoordinates,
   isSyncInProgress,
   mapChannelStatus,
   releaseSyncLock,
@@ -101,6 +103,17 @@ function createMockBoxClient(channelListResult: unknown[] | Error): BoxClient {
       start: mock(async () => ({ success: true })),
       stop: mock(async () => ({ success: true })),
     },
+    connectivity: {
+      getLocationPosition: mock(async () => {
+        throw new Error('not configured');
+      }),
+      getBleStatus: mock(async () => {
+        throw new Error('not configured');
+      }),
+      getBleDevices: mock(async () => {
+        throw new Error('not configured');
+      }),
+    },
   } as unknown as BoxClient;
 }
 
@@ -168,6 +181,46 @@ describe('sanitizeErrorMessage', () => {
 });
 
 // ---------------------------------------------------------------------------
+// GPS / BLE 추출 테스트
+// ---------------------------------------------------------------------------
+
+describe('extractGpsCoordinates', () => {
+  test('최상위 latitude/longitude 필드를 추출한다', () => {
+    expect(extractGpsCoordinates({ latitude: 37.5665, longitude: 126.978 })).toEqual({
+      latitude: 37.5665,
+      longitude: 126.978,
+    });
+  });
+
+  test('config.gps lat/lng 문자열 필드를 추출한다', () => {
+    expect(extractGpsCoordinates({ config: { gps: { lat: '35.1796', lng: '129.0756' } } })).toEqual(
+      {
+        latitude: 35.1796,
+        longitude: 129.0756,
+      },
+    );
+  });
+
+  test('범위를 벗어난 좌표는 무시한다', () => {
+    expect(extractGpsCoordinates({ latitude: 120, longitude: 126.978 })).toBeNull();
+  });
+});
+
+describe('extractBleBeaconCount', () => {
+  test('bleBeaconCount 필드를 추출한다', () => {
+    expect(extractBleBeaconCount({ bleBeaconCount: 3 })).toBe(3);
+  });
+
+  test('ble.beacons 배열 길이를 신호 개수로 사용한다', () => {
+    expect(extractBleBeaconCount({ ble: { beacons: [{ id: 'a' }, { id: 'b' }] } })).toBe(2);
+  });
+
+  test('BLE 정보가 없으면 null 을 반환한다', () => {
+    expect(extractBleBeaconCount({ id: 'ch-1' })).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 뮤텍스 테스트
 // ---------------------------------------------------------------------------
 
@@ -229,8 +282,14 @@ describe('syncChannelsForBox', () => {
 
   test('신규 채널 INSERT — 정상 동기화', async () => {
     const mockClient = createMockBoxClient([
-      { id: 'ch-1', name: '채널 1', status: 'RUNNING' },
-      { id: 'ch-2', name: '채널 2', status: 'STOPPED' },
+      {
+        id: 'ch-1',
+        name: '채널 1',
+        status: 'RUNNING',
+        gps: { latitude: 37.5665, longitude: 126.978 },
+        ble: { beacons: [{ id: 'ble-a' }, { id: 'ble-b' }] },
+      },
+      { id: 'ch-2', name: '채널 2', status: 'STOPPED', bleBeaconCount: 1 },
     ]);
 
     deps = {
@@ -247,18 +306,28 @@ describe('syncChannelsForBox', () => {
     const cam1 = getCameraByChannelId(db, 'box-001', 'ch-1');
     expect(cam1).not.toBeNull();
     expect(cam1?.status).toBe('online');
+    expect(cam1?.latitude).toBe(37.5665);
+    expect(cam1?.longitude).toBe(126.978);
+    expect(cam1?.ble_beacon_count).toBe(2);
     expect(cam1?.last_synced_at).toBeGreaterThan(0);
     expect(cam1?.sync_error).toBeNull();
 
     const cam2 = getCameraByChannelId(db, 'box-001', 'ch-2');
     expect(cam2?.status).toBe('offline');
+    expect(cam2?.ble_beacon_count).toBe(1);
   });
 
-  test('기존 채널 UPDATE — 이름/상태 갱신', async () => {
+  test('기존 채널 UPDATE — 이름/상태/GPS/BLE 갱신', async () => {
     insertCamera(db, 'cam-existing', 'box-001', 'ch-1', 'offline');
 
     const mockClient = createMockBoxClient([
-      { id: 'ch-1', name: '갱신된 채널', status: 'RUNNING' },
+      {
+        id: 'ch-1',
+        name: '갱신된 채널',
+        status: 'RUNNING',
+        config: { location: { lat: 37.4, lon: 127.1 } },
+        bleBeaconCount: 4,
+      },
     ]);
 
     deps = {
@@ -272,8 +341,43 @@ describe('syncChannelsForBox', () => {
     const cam = getCameraByChannelId(db, 'box-001', 'ch-1');
     expect(cam?.name).toBe('갱신된 채널');
     expect(cam?.status).toBe('online');
+    expect(cam?.latitude).toBe(37.4);
+    expect(cam?.longitude).toBe(127.1);
+    expect(cam?.ble_beacon_count).toBe(4);
     expect(cam?.last_synced_at).toBeGreaterThan(0);
     expect(cam?.sync_error).toBeNull();
+  });
+
+  test('Box connectivity GPS/BLE 정보를 채널 좌표 기본값으로 사용한다', async () => {
+    const mockClient = createMockBoxClient([
+      { id: 'ch-box', name: 'Box 위치 채널', status: 'RUNNING' },
+    ]);
+    (
+      mockClient as unknown as {
+        connectivity: {
+          getLocationPosition: ReturnType<typeof mock>;
+          getBleStatus: ReturnType<typeof mock>;
+          getBleDevices: ReturnType<typeof mock>;
+        };
+      }
+    ).connectivity = {
+      getLocationPosition: mock(async () => ({ latitude: 36.5, longitude: 127.5 })),
+      getBleStatus: mock(async () => ({ deviceCount: 6 })),
+      getBleDevices: mock(async () => ({ devices: [] })),
+    };
+
+    deps = {
+      db,
+      vaultKey: TEST_VAULT_KEY,
+      createBoxClient: mock(() => mockClient),
+    };
+
+    await syncChannelsForBox('box-001', deps);
+
+    const cam = getCameraByChannelId(db, 'box-001', 'ch-box');
+    expect(cam?.latitude).toBe(36.5);
+    expect(cam?.longitude).toBe(127.5);
+    expect(cam?.ble_beacon_count).toBe(6);
   });
 
   test('Box API에 없는 채널 → status=offline (하드 삭제 없음)', async () => {

@@ -107,6 +107,7 @@ function createMockBoxClient(channelListResult: unknown[] | Error): BoxClient {
       getLocationPosition: mock(async () => {
         throw new Error('not configured');
       }),
+      setBleScanning: mock(async () => ({ success: true })),
       getBleStatus: mock(async () => {
         throw new Error('not configured');
       }),
@@ -357,12 +358,14 @@ describe('syncChannelsForBox', () => {
         connectivity: {
           getLocationPosition: ReturnType<typeof mock>;
           getBleStatus: ReturnType<typeof mock>;
+          setBleScanning: ReturnType<typeof mock>;
           getBleDevices: ReturnType<typeof mock>;
         };
       }
     ).connectivity = {
       getLocationPosition: mock(async () => ({ latitude: 36.5, longitude: 127.5 })),
       getBleStatus: mock(async () => ({ deviceCount: 6 })),
+      setBleScanning: mock(async () => ({ success: true })),
       getBleDevices: mock(async () => ({ devices: [] })),
     };
 
@@ -378,6 +381,40 @@ describe('syncChannelsForBox', () => {
     expect(cam?.latitude).toBe(36.5);
     expect(cam?.longitude).toBe(127.5);
     expect(cam?.ble_beacon_count).toBe(6);
+  });
+
+  test('BLE status count가 0이어도 devices 목록이 있으면 devices 개수를 사용한다', async () => {
+    const mockClient = createMockBoxClient([{ id: 'ch-ble', name: 'BLE 채널', status: 'RUNNING' }]);
+    (
+      mockClient as unknown as {
+        connectivity: {
+          getLocationPosition: ReturnType<typeof mock>;
+          getBleStatus: ReturnType<typeof mock>;
+          setBleScanning: ReturnType<typeof mock>;
+          getBleDevices: ReturnType<typeof mock>;
+        };
+      }
+    ).connectivity = {
+      getLocationPosition: mock(async () => ({ latitude: 36.5, longitude: 127.5 })),
+      getBleStatus: mock(async () => ({ scanning: true, deviceCount: 0 })),
+      setBleScanning: mock(async () => ({ success: true })),
+      getBleDevices: mock(async () => ({
+        scanning: true,
+        deviceCount: 2,
+        devices: [{ address: 'AA:BB' }, { address: 'CC:DD' }],
+      })),
+    };
+
+    deps = {
+      db,
+      vaultKey: TEST_VAULT_KEY,
+      createBoxClient: mock(() => mockClient),
+    };
+
+    await syncChannelsForBox('box-001', deps);
+
+    const cam = getCameraByChannelId(db, 'box-001', 'ch-ble');
+    expect(cam?.ble_beacon_count).toBe(2);
   });
 
   test('Box API에 없는 채널 → status=offline (하드 삭제 없음)', async () => {

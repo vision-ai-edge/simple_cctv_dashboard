@@ -242,6 +242,25 @@ export function extractBleBeaconCount(channel: unknown): number | null {
   return null;
 }
 
+async function withTimeout<T>(
+  promise: Promise<T> | undefined,
+  timeoutMs: number,
+): Promise<T | null> {
+  if (!promise) return null;
+
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<null>((resolve) => {
+        timeoutId = setTimeout(() => resolve(null), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 async function readBoxGpsCoordinates(client: BoxClient): Promise<GpsCoordinates | null> {
   try {
     const connectivity = (
@@ -249,7 +268,7 @@ async function readBoxGpsCoordinates(client: BoxClient): Promise<GpsCoordinates 
         connectivity?: { getLocationPosition?: () => Promise<unknown> };
       }
     ).connectivity;
-    const position = await connectivity?.getLocationPosition?.();
+    const position = await withTimeout(connectivity?.getLocationPosition?.(), 1_000);
     return extractGpsCoordinates(position);
   } catch {
     return null;
@@ -262,17 +281,24 @@ async function readBoxBleBeaconCount(client: BoxClient): Promise<number | null> 
       client as unknown as {
         connectivity?: {
           getBleStatus?: () => Promise<unknown>;
+          setBleScanning?: (enabled: boolean, broadcastIntervalMs?: number) => Promise<unknown>;
           getBleDevices?: () => Promise<unknown>;
         };
       }
     ).connectivity;
 
-    const status = await connectivity?.getBleStatus?.();
-    const statusCount = extractBleBeaconCount(status);
-    if (statusCount != null) return statusCount;
+    const status = await withTimeout(connectivity?.getBleStatus?.(), 1_000);
+    const statusRecord = asRecord(status);
+    if (statusRecord?.scanning === false) {
+      await withTimeout(connectivity?.setBleScanning?.(true, 5_000), 1_000);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
 
-    const devices = await connectivity?.getBleDevices?.();
-    return extractBleBeaconCount(devices);
+    const devices = await withTimeout(connectivity?.getBleDevices?.(), 1_000);
+    const devicesCount = extractBleBeaconCount(devices);
+    if (devicesCount != null && devicesCount > 0) return devicesCount;
+
+    return extractBleBeaconCount(status) ?? devicesCount;
   } catch {
     return null;
   }
@@ -336,9 +362,9 @@ export async function syncChannelsForBox(boxId: string, deps: BoxServiceDeps): P
   // BoxClient 생성
   const client: BoxClient = createBoxClient(credRow.baseUrl, jwt);
 
-  // channels.list() 호출 (10초 타임아웃)
+  // channels.list() 호출 (8초 타임아웃)
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  const timeoutId = setTimeout(() => controller.abort(), 8_000);
 
   let channelList!: ChannelListResponse;
   const boxGps = await readBoxGpsCoordinates(client);
@@ -348,7 +374,7 @@ export async function syncChannelsForBox(boxId: string, deps: BoxServiceDeps): P
       client.channels.list(),
       new Promise<never>((_, reject) =>
         controller.signal.addEventListener('abort', () =>
-          reject(new Error('Connection timeout after 10000ms')),
+          reject(new Error('Connection timeout after 8000ms')),
         ),
       ),
     ])) as ChannelListResponse;

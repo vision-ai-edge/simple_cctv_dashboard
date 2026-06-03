@@ -29,6 +29,7 @@ import {
   registerBox,
 } from '../services/boxService';
 import { createChannelRoutes } from './channels';
+import { createModelRoutes } from './models';
 
 // ---------------------------------------------------------------------------
 // 입력 스키마
@@ -210,6 +211,13 @@ export function createBoxRoutes(opts: CreateBoxRoutesOptions): Hono {
   // -------------------------------------------------------------------------
   const channelRoutes = createChannelRoutes({ deps, jwtSecret });
   router.route('/:id/channels', channelRoutes);
+
+  // -------------------------------------------------------------------------
+  // SPEC-ALERTS-001 M4-1: 전역 모델 서브라우터 마운트 (per-box)
+  // /:id/models/* — 모델 CRUD 라우트
+  // -------------------------------------------------------------------------
+  const modelRoutes = createModelRoutes({ deps, jwtSecret });
+  router.route('/:id/models', modelRoutes);
 
   return router;
 }

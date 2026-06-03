@@ -19,7 +19,7 @@
  */
 
 import type { BoxClient } from '@cctv/shared';
-import { decryptWithVault } from '@cctv/shared/crypto/vault';
+import { decryptWithVault } from '@cctv/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { createRequireAuth } from '../middleware/requireAuth';
@@ -42,6 +42,17 @@ const ChannelIdParamSchema = z.object({
 const SegmentNameParamSchema = z.object({
   channelId: z.string().min(1),
   name: z.string().min(1),
+});
+
+// vision-ai 모델 슬롯 라우트용 스키마 (M4-2)
+const ChannelModelSlotBodySchema = z.object({
+  modelId: z.string().min(1),
+  enabled: z.boolean().optional(),
+});
+
+const ChannelModelIdParamSchema = z.object({
+  channelId: z.string().min(1),
+  modelId: z.string().min(1),
 });
 
 // ---------------------------------------------------------------------------
@@ -424,6 +435,91 @@ export function createChannelRoutes(opts: CreateChannelRoutesOptions): Hono {
         return c.json(errorEnvelope(`Box 를 찾을 수 없습니다: ${boxId}`), 404);
       }
       return c.json(errorEnvelope('HLS 플레이리스트 프록시 오류'), 502);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // SPEC-ALERTS-001 M4-2: 채널별 vision-ai 모델 슬롯 라우트
+  // -------------------------------------------------------------------------
+
+  // GET /:channelId/vision-ai/models — 채널 모델 슬롯 목록 조회
+  router.get('/:channelId/vision-ai/models', async (c) => {
+    const boxId = getBoxId(c);
+    if (!boxId) return c.json(errorEnvelope('Box ID가 없습니다'), 400);
+    const rawParams = c.req.param();
+    const parsed = ChannelIdParamSchema.safeParse(rawParams);
+    if (!parsed.success) {
+      return c.json(errorEnvelope('channelId가 유효하지 않습니다'), 400);
+    }
+    const { channelId } = parsed.data;
+
+    try {
+      const { client } = await resolveClientForBox(boxId, deps);
+      const models = await client.visionAi.listChannelModels(channelId);
+      return c.json({ models }, 200);
+    } catch (err) {
+      if (err instanceof BoxNotFoundError) {
+        return c.json(errorEnvelope(`Box 를 찾을 수 없습니다: ${boxId}`), 404);
+      }
+      return c.json(errorEnvelope('채널 모델 목록 조회에 실패했습니다'), 502);
+    }
+  });
+
+  // POST /:channelId/vision-ai/models — 채널 모델 슬롯 추가
+  router.post('/:channelId/vision-ai/models', async (c) => {
+    const boxId = getBoxId(c);
+    if (!boxId) return c.json(errorEnvelope('Box ID가 없습니다'), 400);
+    const rawParams = c.req.param();
+    const channelParsed = ChannelIdParamSchema.safeParse(rawParams);
+    if (!channelParsed.success) {
+      return c.json(errorEnvelope('channelId가 유효하지 않습니다'), 400);
+    }
+    const { channelId } = channelParsed.data;
+
+    let body: { modelId: string; enabled?: boolean };
+    try {
+      const raw = await c.req.json();
+      const bodyParsed = ChannelModelSlotBodySchema.safeParse(raw);
+      if (!bodyParsed.success) {
+        return c.json(errorEnvelope('요청 본문이 유효하지 않습니다'), 400);
+      }
+      body = bodyParsed.data;
+    } catch {
+      return c.json(errorEnvelope('요청 본문을 파싱할 수 없습니다'), 400);
+    }
+
+    try {
+      const { client } = await resolveClientForBox(boxId, deps);
+      const slot = await client.visionAi.addChannelModel(channelId, body);
+      return c.json(slot, 200);
+    } catch (err) {
+      if (err instanceof BoxNotFoundError) {
+        return c.json(errorEnvelope(`Box 를 찾을 수 없습니다: ${boxId}`), 404);
+      }
+      return c.json(errorEnvelope('채널 모델 추가에 실패했습니다'), 502);
+    }
+  });
+
+  // DELETE /:channelId/vision-ai/models/:modelId — 채널 모델 슬롯 제거
+  router.delete('/:channelId/vision-ai/models/:modelId', async (c) => {
+    const boxId = getBoxId(c);
+    if (!boxId) return c.json(errorEnvelope('Box ID가 없습니다'), 400);
+    const rawParams = c.req.param();
+    const parsed = ChannelModelIdParamSchema.safeParse(rawParams);
+    if (!parsed.success) {
+      return c.json(errorEnvelope('channelId 또는 modelId가 유효하지 않습니다'), 400);
+    }
+    const { channelId, modelId } = parsed.data;
+
+    try {
+      const { client } = await resolveClientForBox(boxId, deps);
+      await client.visionAi.removeChannelModel(channelId, modelId);
+      return c.json({ success: true }, 200);
+    } catch (err) {
+      if (err instanceof BoxNotFoundError) {
+        return c.json(errorEnvelope(`Box 를 찾을 수 없습니다: ${boxId}`), 404);
+      }
+      return c.json(errorEnvelope('채널 모델 제거에 실패했습니다'), 502);
     }
   });
 

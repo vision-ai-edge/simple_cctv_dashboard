@@ -24,6 +24,14 @@ const EnvSchema = z.object({
     .regex(/^[0-9a-fA-F]{64}$/, 'BOX_VAULT_KEY 는 hex 문자열이어야 합니다.'),
   // SPEC-BOX-001 REQ-MOD-4: Box 상태 폴링 주기 (ms, 기본 60초)
   BOX_STATUS_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
+  // SPEC-ALERTS-001 D3: detection 폴링 주기 (ms, 기본 3초, 최소 1초)
+  DETECTION_POLL_INTERVAL_MS: z.coerce.number().int().min(1000).default(3000),
+  // SPEC-ALERTS-001 D6: WebPush VAPID 키 (선택, 미설정 시 WebPush 비활성)
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_CONTACT: z.string().optional(),
+  // SPEC-ALERTS-001 D5: Telegram Bot 토큰 (선택, 미설정 시 Telegram 비활성)
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof EnvSchema>;

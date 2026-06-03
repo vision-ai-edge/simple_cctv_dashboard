@@ -8,10 +8,12 @@ import type { BoxClient } from '@cctv/shared';
 import { Hono } from 'hono';
 import type { Logger } from './logger';
 import { createCorsMiddleware } from './middleware/corsHandler';
+import { createAlertRoutes } from './routes/alerts';
 import { createAuthRoutes } from './routes/auth';
 import { createBoxRoutes } from './routes/boxes';
 import { createCameraRoutes } from './routes/cameras';
 import { healthRoute } from './routes/health';
+import type { AlertDispatcher } from './services/alertDispatcher';
 
 export interface CreateAppOptions {
   db: Db;
@@ -23,6 +25,8 @@ export interface CreateAppOptions {
   boxVaultKey?: string;
   // SPEC-BOX-001: BoxClient 팩토리 (테스트 mock 용이)
   createBoxClient?: (baseUrl: string, token?: string) => BoxClient;
+  // SPEC-ALERTS-001: AlertDispatcher 인스턴스 (SSE 레지스트리)
+  alertDispatcher?: AlertDispatcher;
 }
 
 export function createApp(opts: CreateAppOptions): Hono {
@@ -59,9 +63,16 @@ export function createApp(opts: CreateAppOptions): Hono {
     }
 
     // SPEC-DASHBOARD-001: 카메라 집계 라우트 마운트 (REQ-DASH-002)
+    app.route('/api/cameras', createCameraRoutes({ db: opts.db, jwtSecret: opts.jwtSecret }));
+
+    // SPEC-ALERTS-001: 알림 라우트 마운트 (REQ-ALERT-005~010)
     app.route(
-      '/api/cameras',
-      createCameraRoutes({ db: opts.db, jwtSecret: opts.jwtSecret }),
+      '/api/alerts',
+      createAlertRoutes({
+        deps: { db: opts.db },
+        jwtSecret: opts.jwtSecret,
+        dispatcher: opts.alertDispatcher,
+      }),
     );
   }
 

@@ -25,6 +25,8 @@ export interface CameraWithBox {
   latitude: number | null;
   /** 경도 — null이면 사이드바로 분류 */
   longitude: number | null;
+  /** 주변에서 감지된 BLE 비컨 신호 개수 */
+  bleBeaconCount: number;
   /** 마지막 동기화 시각 (Unix ms) */
   lastSyncedAt: number | null;
   /** cameras.box_id */

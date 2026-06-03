@@ -40,6 +40,7 @@ const makeCamera = (id: string): CameraWithBox => ({
   status: 'online',
   latitude: 37.5665,
   longitude: 126.978,
+  bleBeaconCount: 0,
   lastSyncedAt: Date.now(),
   boxId: 'box-001',
   boxName: 'Box A',
@@ -88,10 +89,7 @@ describe('/dashboard loadLogic', () => {
   });
 
   it('좌표 없는 카메라도 서버에서는 그대로 전달된다 (필터링은 클라이언트)', () => {
-    const cameras = [
-      makeCamera('001'),
-      { ...makeCamera('002'), latitude: null, longitude: null },
-    ];
+    const cameras = [makeCamera('001'), { ...makeCamera('002'), latitude: null, longitude: null }];
     const result = loadLogic({ ok: true, cameras });
     expect(result.cameras).toHaveLength(2);
     expect(result.cameras[1].latitude).toBeNull();

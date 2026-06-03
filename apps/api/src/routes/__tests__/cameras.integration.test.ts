@@ -113,6 +113,7 @@ function insertCamera(
     status?: 'online' | 'offline' | 'error';
     latitude?: number | null;
     longitude?: number | null;
+    bleBeaconCount?: number;
     lastSyncedAt?: number | null;
   },
 ) {
@@ -120,12 +121,13 @@ function insertCamera(
   const status = opts?.status ?? 'online';
   const latitude = opts?.latitude ?? null;
   const longitude = opts?.longitude ?? null;
+  const bleBeaconCount = opts?.bleBeaconCount ?? 0;
   const lastSyncedAt = opts?.lastSyncedAt ?? null;
 
   db.$client
     .prepare(
-      `INSERT INTO cameras (id, box_id, channel_id, name, status, latitude, longitude, last_synced_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO cameras (id, box_id, channel_id, name, status, latitude, longitude, ble_beacon_count, last_synced_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -135,6 +137,7 @@ function insertCamera(
       status,
       latitude,
       longitude,
+      bleBeaconCount,
       lastSyncedAt,
       Date.now(),
       Date.now(),
@@ -198,6 +201,7 @@ describe('GET /api/cameras', () => {
       status: 'online',
       latitude: 37.5665,
       longitude: 126.978,
+      bleBeaconCount: 3,
       lastSyncedAt: 1700000000000,
     });
     insertCamera(db, 'cam-002', 'box-001', 'ch-B', {
@@ -222,6 +226,7 @@ describe('GET /api/cameras', () => {
         status: string;
         latitude: number | null;
         longitude: number | null;
+        bleBeaconCount: number;
         lastSyncedAt: number | null;
         boxId: string;
         boxName: string;
@@ -238,6 +243,7 @@ describe('GET /api/cameras', () => {
     expect(camA?.status).toBe('online');
     expect(camA?.latitude).toBe(37.5665);
     expect(camA?.longitude).toBe(126.978);
+    expect(camA?.bleBeaconCount).toBe(3);
     expect(camA?.lastSyncedAt).toBe(1700000000000);
     expect(camA?.boxId).toBe('box-001');
     // AC-DASH-002-D 검증 요소 — boxName JOIN

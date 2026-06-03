@@ -18,6 +18,7 @@ import { startChannel, stopChannel } from '$lib/api/channels';
 import RelativeTime from '$lib/components/box/RelativeTime.svelte';
 import type { ChannelDto } from '$lib/types/channel';
 import { untrack } from 'svelte';
+import ChannelModelSlots from './ChannelModelSlots.svelte';
 import ChannelPreview from './ChannelPreview.svelte';
 import { getCameraStatusBadgeClass, getCameraStatusLabel } from './channelBadge.helpers';
 
@@ -132,6 +133,13 @@ function closeSnapshot() {
 function handlePreviewToggle() {
   showPreview = !showPreview;
 }
+
+/** 모델 슬롯 패널 표시 여부 */
+let showModelSlots = $state(false);
+
+function handleModelSlotsToggle() {
+  showModelSlots = !showModelSlots;
+}
 </script>
 
 <!-- 채널 행 카드 -->
@@ -240,6 +248,17 @@ function handlePreviewToggle() {
     >
       {showPreview ? '프리뷰 닫기' : '프리뷰'}
     </button>
+
+    <!-- 모델 슬롯 버튼 (M5-6) -->
+    <button
+      type="button"
+      onclick={handleModelSlotsToggle}
+      class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700
+             hover:bg-slate-50 transition-colors
+             focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1"
+    >
+      {showModelSlots ? '모델 닫기' : '모델 관리'}
+    </button>
   </div>
 
   <!-- 스냅샷 인라인 이미지 표시 (AC-007) -->
@@ -265,5 +284,10 @@ function handlePreviewToggle() {
   <!-- HLS 프리뷰 패널 (REQ-CHAN-007, mount/unmount 방식) -->
   {#if showPreview}
     <ChannelPreview {boxId} channelId={channel.channelId} />
+  {/if}
+
+  <!-- 채널 모델 슬롯 패널 (M5-6, mount/unmount 방식) -->
+  {#if showModelSlots}
+    <ChannelModelSlots {boxId} channelId={channel.channelId} />
   {/if}
 </div>

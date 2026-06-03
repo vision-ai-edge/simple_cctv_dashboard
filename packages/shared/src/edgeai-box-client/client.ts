@@ -11,6 +11,8 @@ import { z } from 'zod';
 import { BoxApiError } from './error';
 import {
   ApiKeyResponseSchema,
+  BleDevicesResponseSchema,
+  BleStatusResponseSchema,
   type ChannelCreateRequest,
   ChannelListResponseSchema,
   ChannelResponseSchema,
@@ -21,6 +23,7 @@ import {
   DateListResponseSchema,
   DetectionsResponseSchema,
   FilesListResponseSchema,
+  LocationPositionResponseSchema,
   LoginResponseSchema,
   ModelInfoSchema,
   ModelListResponseSchema,
@@ -254,6 +257,22 @@ export class BoxClient {
         SimpleResponseSchema.passthrough(),
         { query: { type } },
       ),
+  };
+
+  // ---------------------------------------------------------------------------
+  // connectivity
+  // ---------------------------------------------------------------------------
+  readonly connectivity = {
+    getLocationPosition: () =>
+      this.#request('/connectivity/location/position', LocationPositionResponseSchema),
+    getBleStatus: () => this.#request('/connectivity/bluetooth/ble', BleStatusResponseSchema),
+    setBleScanning: (enabled: boolean, broadcastIntervalMs?: number) =>
+      this.#request('/connectivity/bluetooth/ble', SimpleResponseSchema, {
+        method: 'PUT',
+        json: { enabled, broadcastIntervalMs },
+      }),
+    getBleDevices: () =>
+      this.#request('/connectivity/bluetooth/ble/devices', BleDevicesResponseSchema),
   };
 
   // ---------------------------------------------------------------------------

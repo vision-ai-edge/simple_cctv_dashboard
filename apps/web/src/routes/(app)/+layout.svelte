@@ -6,6 +6,7 @@
  * 상단 내비게이션에 로그인한 사용자 이름과 로그아웃 버튼을 표시한다.
  */
 
+import AlertToastContainer from '$lib/components/alerts/AlertToastContainer.svelte';
 import type { LayoutData } from './$types';
 
 const { data, children }: { data: LayoutData; children: import('svelte').Snippet } = $props();
@@ -22,6 +23,8 @@ const { data, children }: { data: LayoutData; children: import('svelte').Snippet
           <a href="/dashboard" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">대시보드</a>
           <a href="/dashboard/grid" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">멀티뷰</a>
           <a href="/boxes" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">박스 관리</a>
+          <a href="/alerts" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">알림</a>
+          <a href="/settings/alerts" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">알림 설정</a>
         </nav>
       </div>
       <div class="flex items-center gap-4">
@@ -44,3 +47,6 @@ const { data, children }: { data: LayoutData; children: import('svelte').Snippet
     {@render children()}
   </main>
 </div>
+
+<!-- 알림 토스트 컨테이너 — 모든 (app) 라우트에서 동작 (M5-7) -->
+<AlertToastContainer />

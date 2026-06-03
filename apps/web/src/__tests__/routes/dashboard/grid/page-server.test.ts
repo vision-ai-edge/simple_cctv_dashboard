@@ -41,6 +41,7 @@ const makeCamera = (id: string, status: CameraWithBox['status'] = 'online'): Cam
   status,
   latitude: 37.5665,
   longitude: 126.978,
+  bleBeaconCount: 0,
   lastSyncedAt: Date.now(),
   boxId: 'box-001',
   boxName: 'Box A',
@@ -103,20 +104,24 @@ describe('/dashboard/grid loadLogic', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 레이아웃 변경 → assignments 초기화 로직 (순수 함수 레벨)
+// 레이아웃 변경 → assignments 보존/리사이즈 로직 (순수 함수 레벨)
 // ---------------------------------------------------------------------------
 
 describe('멀티뷰 레이아웃 초기화 로직', () => {
   /**
    * +page.svelte 의 handleLayoutChange 와 동일한 로직을 순수 함수로 추출하여 테스트.
-   * 컴포넌트 DOM 없이 레이아웃 변경 시 assignments 크기와 초기값을 검증한다.
+   * 컴포넌트 DOM 없이 레이아웃 변경 시 assignments 크기와 기존 할당 보존을 검증한다.
    */
   function handleLayoutChange(
     newLayout: 1 | 4 | 9,
-  ): { cellCount: 1 | 4 | 9; assignments: (CameraWithBox | null)[] } {
+    currentAssignments: (CameraWithBox | null)[] = [],
+  ): {
+    cellCount: 1 | 4 | 9;
+    assignments: (CameraWithBox | null)[];
+  } {
     return {
       cellCount: newLayout,
-      assignments: Array(newLayout).fill(null),
+      assignments: Array.from({ length: newLayout }, (_, i) => currentAssignments[i] ?? null),
     };
   }
 
@@ -141,18 +146,25 @@ describe('멀티뷰 레이아웃 초기화 로직', () => {
     expect(assignments.every((a) => a === null)).toBe(true);
   });
 
-  it('레이아웃 변경 시 기존 할당이 초기화된다 (reset)', () => {
-    // 기존 assignments 에 카메라가 있던 상태를 시뮬레이션
-    const _previousAssignments: (CameraWithBox | null)[] = [
+  it('레이아웃 확장 시 기존 할당이 유지된다', () => {
+    const previousAssignments: (CameraWithBox | null)[] = [
       makeCamera('001'),
       makeCamera('002'),
       null,
       null,
     ];
-    // 레이아웃 변경 → 새 assignments 생성 (기존 무시)
-    const { assignments } = handleLayoutChange(9);
+    const { assignments } = handleLayoutChange(9, previousAssignments);
     expect(assignments).toHaveLength(9);
-    expect(assignments.every((a) => a === null)).toBe(true);
+    expect(assignments[0]?.id).toBe('001');
+    expect(assignments[1]?.id).toBe('002');
+    expect(assignments[8]).toBeNull();
+  });
+
+  it('레이아웃 축소 시 범위를 벗어난 할당만 제거된다', () => {
+    const previousAssignments = [makeCamera('001'), makeCamera('002'), makeCamera('003'), null];
+    const { assignments } = handleLayoutChange(1, previousAssignments);
+    expect(assignments).toHaveLength(1);
+    expect(assignments[0]?.id).toBe('001');
   });
 });
 

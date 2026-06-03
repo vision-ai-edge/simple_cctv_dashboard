@@ -17,7 +17,7 @@
 
 import type { BoxStatus, Db } from '@cctv/db';
 import type { BoxClient } from '@cctv/shared';
-import { decryptWithVault } from '@cctv/shared/crypto/vault';
+import { decryptWithVault } from '@cctv/shared';
 
 // ---------------------------------------------------------------------------
 // 공개 타입

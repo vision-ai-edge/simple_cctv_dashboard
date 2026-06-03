@@ -30,7 +30,13 @@ export async function fetchCameras(
     const res = await fetchImpl('/api/cameras');
     if (res.ok) {
       const data = (await res.json()) as { cameras: CameraWithBox[] };
-      return { ok: true, cameras: data.cameras };
+      return {
+        ok: true,
+        cameras: data.cameras.map((camera) => ({
+          ...camera,
+          bleBeaconCount: camera.bleBeaconCount ?? 0,
+        })),
+      };
     }
     return {
       ok: false,

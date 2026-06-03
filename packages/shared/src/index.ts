@@ -8,4 +8,4 @@
 
 export * from './edgeai-box-client';
 export * from './jwt';
-export * from './crypto/vault.js';
+export * from './crypto/vault';

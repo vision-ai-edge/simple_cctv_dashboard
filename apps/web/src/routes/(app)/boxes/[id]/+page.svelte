@@ -32,12 +32,22 @@ const { data, form }: { data: PageData; form: ActionData } = $props();
 
 <div class="max-w-2xl space-y-6">
   <!-- 뒤로 가기 링크 -->
-  <a
-    href="/boxes"
-    class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 transition-colors"
-  >
-    ← 박스 목록으로
-  </a>
+  <div class="flex items-center gap-4">
+    <a
+      href="/boxes"
+      class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 transition-colors"
+    >
+      ← 박스 목록으로
+    </a>
+    {#if data.box}
+      <a
+        href="/boxes/{data.box.id}/models"
+        class="text-sm text-slate-500 hover:text-slate-800 transition-colors"
+      >
+        모델 관리
+      </a>
+    {/if}
+  </div>
 
   <!-- 로드 에러 -->
   {#if data.loadError}

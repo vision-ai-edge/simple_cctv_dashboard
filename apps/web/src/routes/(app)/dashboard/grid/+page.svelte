@@ -14,6 +14,7 @@
 import GridCell from '$lib/components/dashboard/GridCell.svelte';
 import GridLayoutSelector from '$lib/components/dashboard/GridLayoutSelector.svelte';
 import type { CameraWithBox } from '$lib/types/dashboard';
+import { onMount } from 'svelte';
 import type { PageData } from './$types';
 
 // ---------------------------------------------------------------------------
@@ -21,6 +22,8 @@ import type { PageData } from './$types';
 // ---------------------------------------------------------------------------
 
 const { data }: { data: PageData } = $props();
+
+const STORAGE_KEY = 'cctv-dashboard-grid-state';
 
 // ---------------------------------------------------------------------------
 // 레이아웃 상태 (D1: 기본값 4 = 2×2)
@@ -33,6 +36,7 @@ let cellCount = $state<1 | 4 | 9>(4);
 // ---------------------------------------------------------------------------
 
 let assignments = $state<(CameraWithBox | null)[]>(Array(4).fill(null));
+let storageReady = $state(false);
 
 // ---------------------------------------------------------------------------
 // CSS Grid 클래스 (derived)
@@ -52,7 +56,7 @@ const gridClass = $derived<string>(
  */
 function handleLayoutChange(newLayout: 1 | 4 | 9) {
   cellCount = newLayout;
-  assignments = Array(newLayout).fill(null);
+  assignments = resizeAssignments(assignments, newLayout);
 }
 
 /**
@@ -61,6 +65,54 @@ function handleLayoutChange(newLayout: 1 | 4 | 9) {
 function handleAssign(index: number, camera: CameraWithBox | null) {
   assignments = assignments.map((a, i) => (i === index ? camera : a));
 }
+
+function resizeAssignments(
+  currentAssignments: (CameraWithBox | null)[],
+  newLayout: 1 | 4 | 9,
+): (CameraWithBox | null)[] {
+  return Array.from({ length: newLayout }, (_, i) => currentAssignments[i] ?? null);
+}
+
+function restoreGridState() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return;
+
+  try {
+    const parsed = JSON.parse(raw) as { cellCount?: number; cameraIds?: Array<string | null> };
+    const restoredCellCount =
+      parsed.cellCount === 1 || parsed.cellCount === 4 || parsed.cellCount === 9
+        ? parsed.cellCount
+        : 4;
+    const cameraById = new Map(data.cameras.map((camera) => [camera.id, camera]));
+    cellCount = restoredCellCount;
+    assignments = Array.from({ length: restoredCellCount }, (_, i) => {
+      const cameraId = parsed.cameraIds?.[i];
+      return cameraId ? (cameraById.get(cameraId) ?? null) : null;
+    });
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+}
+
+function persistGridState() {
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      cellCount,
+      cameraIds: assignments.map((camera) => camera?.id ?? null),
+    }),
+  );
+}
+
+onMount(() => {
+  restoreGridState();
+  storageReady = true;
+});
+
+$effect(() => {
+  if (!storageReady) return;
+  persistGridState();
+});
 </script>
 
 <div class="flex flex-col h-[calc(100vh-4rem)] gap-3 p-3">
